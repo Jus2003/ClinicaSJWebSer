@@ -12,19 +12,27 @@ session_start();
 // Crear la aplicación Slim
 $app = AppFactory::create();
 
-// Configurar base path para WAMP
+// 🔧 RESTAURAR ESTA LÍNEA:
 $app->setBasePath('/citas-medicas-api/public');
 
 // Middleware para parsing del body JSON
 $app->addBodyParsingMiddleware();
 
-// Middleware manual para CORS
+// CORS MEJORADO PARA NGROK
 $app->add(function ($request, $handler) {
     $response = $handler->handle($request);
     return $response
         ->withHeader('Access-Control-Allow-Origin', '*')
-        ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
-        ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+        ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization, ngrok-skip-browser-warning, User-Agent')
+        ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS')
+        ->withHeader('Access-Control-Allow-Credentials', 'true')
+        ->withHeader('Access-Control-Max-Age', '3600')
+        ->withHeader('Vary', 'Origin');
+});
+
+// MANEJAR PETICIONES OPTIONS (PREFLIGHT)
+$app->options('/{routes:.+}', function ($request, $response, $args) {
+    return $response;
 });
 
 // Middleware de errores
@@ -42,6 +50,7 @@ $app->get('/', function ($request, $response) {
         'php_version' => phpversion(),
         'servidor' => 'WAMP Server',
         'fecha_hora' => date('Y-m-d H:i:s'),
+        'ngrok_ready' => true, // 👈 Indicador para frontend
         'endpoints_disponibles' => [
             'POST /auth/login' => 'Iniciar sesión',
             'POST /auth/logout' => 'Cerrar sesión',
@@ -81,16 +90,19 @@ $app->get('/', function ($request, $response) {
     return $response->withHeader('Content-Type', 'application/json; charset=utf-8');
 });
 
-// Ruta de test
+// 🔧 RUTA DE TEST MEJORADA
 $app->get('/test', function ($request, $response) {
     $data = [
         'status' => 200,
         'success' => true,
-        'message' => 'API funcionando correctamente',
+        'message' => 'API funcionando correctamente ✅',
         'data' => [
             'timestamp' => time(),
+            'fecha_hora' => date('Y-m-d H:i:s'),
             'session_active' => isset($_SESSION['user_id']) ? 'Sí' : 'No',
-            'user_id' => $_SESSION['user_id'] ?? null
+            'user_id' => $_SESSION['user_id'] ?? null,
+            'cors_enabled' => true,
+            'ngrok_compatible' => true
         ]
     ];
     $response->getBody()->write(json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
