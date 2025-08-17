@@ -220,5 +220,21 @@ class PacienteController {
         }
     }
 
+    public function listarTodos($request, $response) {
+        $pacienteModel = new Paciente();
+        
+        // Verificar rol del usuario (solo admin, recepcionista, médico pueden ver todos)
+        $userRole = $_SESSION['rol'] ?? '';
+        if (!in_array($userRole, ['Administrador', 'Médico', 'Recepcionista'])) {
+            return $response->withJson([
+                'success' => false,
+                'message' => 'No tienes permisos para ver la lista de pacientes'
+            ], 403);
+        }
+        
+        $resultado = $pacienteModel->listarTodos();
+        return $response->withJson($resultado);
+    }
+
 }
 ?>

@@ -292,5 +292,49 @@ class Paciente {
         }
     }
 
+    public function listarTodos() {
+    $sql = "SELECT u.id_usuario, u.cedula, u.nombre, u.apellido, u.email, u.telefono,
+                   u.fecha_nacimiento, u.genero, s.nombre_sucursal,
+                   COUNT(c.id_cita) as total_citas
+            FROM usuarios u 
+            LEFT JOIN sucursales s ON u.id_sucursal = s.id_sucursal 
+            LEFT JOIN citas c ON u.id_usuario = c.id_paciente
+            WHERE u.id_rol = 4 AND u.activo = 1
+            GROUP BY u.id_usuario
+            ORDER BY u.nombre, u.apellido";
+    
+    $stmt = $this->db->prepare($sql);
+    $stmt->execute();
+    $pacientes = $stmt->fetchAll();
+    
+    $resultado = [];
+    foreach ($pacientes as $paciente) {
+        $edad = null;
+        if ($paciente['fecha_nacimiento']) {
+            $fechaNac = new \DateTime($paciente['fecha_nacimiento']);
+            $hoy = new \DateTime();
+            $edad = $fechaNac->diff($hoy)->y;
+        }
+        
+        $resultado[] = [
+            'id_paciente' => $paciente['id_usuario'],
+            'cedula' => $paciente['cedula'],
+            'nombre_completo' => $paciente['nombre'] . ' ' . $paciente['apellido'],
+            'email' => $paciente['email'],
+            'telefono' => $paciente['telefono'],
+            'edad' => $edad,
+            'genero' => $paciente['genero'],
+            'sucursal' => $paciente['nombre_sucursal'],
+            'total_citas' => $paciente['total_citas']
+        ];
+    }
+    
+    return [
+        'success' => true,
+        'message' => 'Lista de pacientes obtenida correctamente',
+        'data' => $resultado
+    ];
+}
+
 }
 ?>
