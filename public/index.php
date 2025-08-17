@@ -30,6 +30,66 @@ $app->add(function ($request, $handler) {
         ->withHeader('Vary', 'Origin');
 });
 
+// 🔧 ENDPOINT ESPECIAL PARA BYPASS DE NGROK
+$app->get('/bypass-test', function ($request, $response) {
+    // Headers especiales para navegadores
+    $response = $response
+        ->withHeader('Access-Control-Allow-Origin', '*')
+        ->withHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        ->withHeader('Access-Control-Allow-Headers', 'Content-Type, Accept')
+        ->withHeader('Content-Type', 'application/json')
+        ->withHeader('Cache-Control', 'no-cache');
+    
+    $data = [
+        'status' => 200,
+        'success' => true,
+        'message' => 'Bypass test funcionando ✅',
+        'timestamp' => time(),
+        'ngrok_ready' => true
+    ];
+    
+    $response->getBody()->write(json_encode($data));
+    return $response;
+});
+
+// 🔧 ENDPOINT DE LOGIN ESPECIAL PARA NAVEGADOR
+$app->post('/browser-login', function ($request, $response) {
+    // Headers especiales
+    $response = $response
+        ->withHeader('Access-Control-Allow-Origin', '*')
+        ->withHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        ->withHeader('Access-Control-Allow-Headers', 'Content-Type, Accept')
+        ->withHeader('Content-Type', 'application/json');
+    
+    $data = $request->getParsedBody();
+    
+    // Simulación de login para prueba
+    if (empty($data['usuario']) || empty($data['password'])) {
+        $result = [
+            'status' => 400,
+            'success' => false,
+            'message' => 'Usuario y contraseña requeridos'
+        ];
+    } else {
+        $result = [
+            'status' => 200,
+            'success' => true,
+            'message' => 'Login de prueba exitoso',
+            'data' => [
+                'usuario' => [
+                    'nombre' => 'Usuario',
+                    'apellido' => 'Prueba',
+                    'email' => 'test@test.com',
+                    'rol' => 'Administrador'
+                ]
+            ]
+        ];
+    }
+    
+    $response->getBody()->write(json_encode($result));
+    return $response;
+});
+
 // MANEJAR PETICIONES OPTIONS (PREFLIGHT)
 $app->options('/{routes:.+}', function ($request, $response, $args) {
     return $response;
