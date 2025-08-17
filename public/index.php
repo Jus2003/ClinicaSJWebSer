@@ -119,6 +119,8 @@ $app->get('/', function ($request, $response) {
             'PUT /perfil/cambiar-password' => 'Cambiar contraseña (requiere sesión)',
             'GET /pacientes/buscar-cedula/{cedula}' => 'Buscar paciente por cédula',
             'GET /pacientes/historial-completo/{id_paciente}' => 'Historial clínico completo',
+            'GET /pacientes/historial-cedula/{cedula}' => 'Historial clínico completo por cédula',
+            'GET /pacientes/historial-lista' => 'Lista de pacientes para historial médico (según rol)',
             'GET /citas/especialidad/{id_especialidad}/medico/{id_medico}' => 'Citas por especialidad y médico',
             'GET /citas/medico/{id_medico}' => 'Citas por médico',
             'GET /citas/fechas?inicio=YYYY-MM-DD&fin=YYYY-MM-DD' => 'Citas por rango de fechas',
