@@ -10,5 +10,7 @@ $app->group('/citas', function ($group) {
     $group->get('/especialidad/{id_especialidad}', [CitaController::class, 'consultarPorEspecialidadYMedico']);
     // Por rango de fechas
     $group->get('/fechas', [CitaController::class, 'consultarPorRangoFechas']);
+    $group->get('/paciente/{id_paciente}', [CitaController::class, 'consultarPorPaciente']);
+    $group->get('/todas', [CitaController::class, 'listarTodas']);
 });
 ?>

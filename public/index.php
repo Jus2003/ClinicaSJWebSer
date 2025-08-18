@@ -124,6 +124,11 @@ $app->get('/', function ($request, $response) {
             'GET /citas/especialidad/{id_especialidad}/medico/{id_medico}' => 'Citas por especialidad y médico',
             'GET /citas/medico/{id_medico}' => 'Citas por médico',
             'GET /citas/fechas?inicio=YYYY-MM-DD&fin=YYYY-MM-DD' => 'Citas por rango de fechas',
+            'GET /especialidades/listar' => 'Lista de especialidades activas',
+            'GET /medicos/listar' => 'Lista de médicos activos',
+            'GET /medicos/especialidad/{id_especialidad}' => 'Médicos por especialidad',
+            'GET /citas/paciente/{id_paciente}' => 'Citas de un paciente específico',
+            'GET /citas/todas' => 'Todas las citas (admin/recepcionista)',
             'GET /test' => 'Prueba de conectividad'
         ],
         'ejemplos' => [
@@ -225,6 +230,12 @@ require __DIR__ . '/../src/Routes/perfil.php';
 require __DIR__ . '/../src/Routes/pacientes.php';
 
 require __DIR__ . '/../src/Routes/citas.php';
+
+// Incluir rutas de especialidades
+require __DIR__ . '/../src/Routes/especialidades.php';
+
+// Incluir rutas de médicos
+require __DIR__ . '/../src/Routes/medicos.php';
 
 // ============================================
 // EJECUTAR LA APLICACIÓN

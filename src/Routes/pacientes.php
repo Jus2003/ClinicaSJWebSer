@@ -7,5 +7,6 @@ $app->group('/pacientes', function ($group) {
     $group->get('/historial-cedula/{cedula}', [PacienteController::class, 'obtenerHistorialPorCedula']);
     $group->get('/historial-lista', [PacienteController::class, 'listarPacientesHistorial']);
     $group->get('/historial-lista/{rol}', [PacienteController::class, 'listarPacientesHistorialPorRol']); // ← NUEVA RUTA CON ROL
+    $group->get('/listar', [PacienteController::class, 'listarTodos']);
 });
 ?>

@@ -123,13 +123,13 @@ class Cita {
             return ['success' => false, 'message' => 'La fecha de inicio no puede ser mayor que la fecha fin'];
         }
         
-        $sql = "SELECT c.id_cita, c.fecha_cita, c.hora_cita, c.tipo_cita, c.estado_cita, 
-                       c.motivo_consulta, c.fecha_registro,
-                       CONCAT(p.nombre, ' ', p.apellido) as nombre_paciente,
-                       p.cedula as cedula_paciente,
-                       CONCAT(m.nombre, ' ', m.apellido) as nombre_medico,
-                       e.nombre_especialidad,
-                       s.nombre_sucursal
+            $sql = "SELECT c.id_cita, c.fecha_cita, c.hora_cita, c.tipo_cita, c.estado_cita, 
+                    c.motivo_consulta, c.fecha_registro,
+                    CONCAT(p.nombre, ' ', p.apellido) as nombre_paciente,
+                    p.cedula as cedula_paciente,
+                    CONCAT(m.nombre, ' ', m.apellido) as nombre_medico,
+                    e.nombre_especialidad,
+                    s.nombre_sucursal
                 FROM citas c
                 INNER JOIN usuarios p ON c.id_paciente = p.id_usuario
                 INNER JOIN usuarios m ON c.id_medico = m.id_usuario
@@ -139,7 +139,7 @@ class Cita {
         
         $params = [$fechaInicio, $fechaFin];
         
-        // Filtros adicionales opcionales
+        // Filtros adicionales
         if (!empty($filtros['medico'])) {
             $sql .= " AND c.id_medico = ?";
             $params[] = $filtros['medico'];
@@ -150,9 +150,10 @@ class Cita {
             $params[] = $filtros['especialidad'];
         }
         
-        if (!empty($filtros['estado'])) {
-            $sql .= " AND c.estado_cita = ?";
-            $params[] = $filtros['estado'];
+        // AGREGAR ESTE FILTRO:
+        if (!empty($filtros['paciente'])) {
+            $sql .= " AND c.id_paciente = ?";
+            $params[] = $filtros['paciente'];
         }
         
         $sql .= " ORDER BY c.fecha_cita ASC, c.hora_cita ASC";
@@ -230,5 +231,82 @@ class Cita {
         }
         return $grupos;
     }
+
+    public function consultarPorPaciente($idPaciente) {
+        $sql = "SELECT c.id_cita, c.fecha_cita, c.hora_cita, c.tipo_cita, c.estado_cita, 
+                    c.motivo_consulta, c.observaciones,
+                    CONCAT(m.nombre, ' ', m.apellido) as nombre_medico,
+                    e.nombre_especialidad,
+                    s.nombre_sucursal
+                FROM citas c
+                INNER JOIN usuarios m ON c.id_medico = m.id_usuario
+                INNER JOIN especialidades e ON c.id_especialidad = e.id_especialidad
+                INNER JOIN sucursales s ON c.id_sucursal = s.id_sucursal
+                WHERE c.id_paciente = ?
+                ORDER BY c.fecha_cita DESC, c.hora_cita DESC";
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$idPaciente]);
+            $citas = $stmt->fetchAll();
+            
+            $estadisticas = $this->calcularEstadisticasCitas($citas);
+            
+            return [
+                'success' => true,
+                'message' => 'Citas del paciente obtenidas correctamente',
+                'data' => [
+                    'citas' => $citas,
+                    'estadisticas' => $estadisticas
+                ]
+            ];
+            
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Error consultando citas del paciente: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    public function listarTodas() {
+        $sql = "SELECT c.id_cita, c.fecha_cita, c.hora_cita, c.tipo_cita, c.estado_cita, 
+                    c.motivo_consulta,
+                    CONCAT(p.nombre, ' ', p.apellido) as nombre_paciente,
+                    p.cedula as cedula_paciente,
+                    CONCAT(m.nombre, ' ', m.apellido) as nombre_medico,
+                    e.nombre_especialidad,
+                    s.nombre_sucursal
+                FROM citas c
+                INNER JOIN usuarios p ON c.id_paciente = p.id_usuario
+                INNER JOIN usuarios m ON c.id_medico = m.id_usuario
+                INNER JOIN especialidades e ON c.id_especialidad = e.id_especialidad
+                INNER JOIN sucursales s ON c.id_sucursal = s.id_sucursal
+                ORDER BY c.fecha_cita DESC, c.hora_cita DESC";
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            $citas = $stmt->fetchAll();
+            
+            $estadisticas = $this->calcularEstadisticasCitas($citas);
+            
+            return [
+                'success' => true,
+                'message' => 'Todas las citas obtenidas correctamente',
+                'data' => [
+                    'citas' => $citas,
+                    'estadisticas' => $estadisticas
+                ]
+            ];
+            
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Error consultando todas las citas: ' . $e->getMessage()
+            ];
+        }
+    }
+
 }
 ?>
