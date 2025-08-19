@@ -308,5 +308,60 @@ class Cita {
         }
     }
 
+    // Agregar este método al modelo Cita existente
+
+    /**
+     * Consultar una cita específica por ID
+     */
+    public function consultarPorId($idCita) {
+        if (empty($idCita) || !is_numeric($idCita)) {
+            return [
+                'success' => false, 
+                'message' => 'ID de cita inválido'
+            ];
+        }
+        
+        $sql = "SELECT c.id_cita, c.fecha_cita, c.hora_cita, c.tipo_cita, c.estado_cita, 
+                c.motivo_consulta, c.fecha_registro, c.observaciones,
+                CONCAT(p.nombre, ' ', p.apellido) as nombre_paciente,
+                p.cedula as cedula_paciente, p.telefono as telefono_paciente,
+                p.email as email_paciente,
+                CONCAT(m.nombre, ' ', m.apellido) as nombre_medico,
+                m.telefono as telefono_medico,
+                e.nombre_especialidad,
+                s.nombre_sucursal, s.direccion as direccion_sucursal
+            FROM citas c
+            INNER JOIN usuarios p ON c.id_paciente = p.id_usuario
+            INNER JOIN usuarios m ON c.id_medico = m.id_usuario
+            INNER JOIN especialidades e ON c.id_especialidad = e.id_especialidad
+            INNER JOIN sucursales s ON c.id_sucursal = s.id_sucursal
+            WHERE c.id_cita = ?";
+            
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$idCita]);
+            $cita = $stmt->fetch();
+            
+            if (!$cita) {
+                return [
+                    'success' => false,
+                    'message' => 'No se encontró la cita con ID: ' . $idCita
+                ];
+            }
+            
+            return [
+                'success' => true,
+                'message' => 'Cita encontrada exitosamente',
+                'data' => $cita
+            ];
+            
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Error consultando la cita: ' . $e->getMessage()
+            ];
+        }
+    }
+
 }
 ?>

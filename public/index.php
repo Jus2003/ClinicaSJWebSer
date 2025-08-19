@@ -129,6 +129,9 @@ $app->get('/', function ($request, $response) {
             'GET /medicos/especialidad/{id_especialidad}' => 'Médicos por especialidad',
             'GET /citas/paciente/{id_paciente}' => 'Citas de un paciente específico',
             'GET /citas/todas' => 'Todas las citas (admin/recepcionista)',
+            // En la sección 'endpoints_disponibles' del index.php, agregar:
+            'POST /citas/consultar-por-id' => 'Consultar cita específica por ID (JSON)',
+            'POST /citas/consultar-por-fechas' => 'Consultar citas por rango de fechas (JSON)',
             'GET /test' => 'Prueba de conectividad'
         ],
         'ejemplos' => [
