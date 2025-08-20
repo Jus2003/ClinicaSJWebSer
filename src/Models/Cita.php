@@ -311,8 +311,8 @@ class Cita {
     // Agregar este método al modelo Cita existente
 
     /**
-     * Consultar una cita específica por ID
-     */
+ * Consultar una cita específica por ID
+ */
     public function consultarPorId($idCita) {
         if (empty($idCita) || !is_numeric($idCita)) {
             return [

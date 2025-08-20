@@ -25,6 +25,10 @@ class CitaController {
         return $response->withJson($resultado);
     }
     
+    /**
+     * Endpoint unificado: Consultar por ID específico O por rango de fechas
+     * Acepta tanto GET (query params) como POST (JSON)
+     */
     public function consultarPorRangoFechas($request, $response) {
         // Verificar sesión
         if (!isset($_SESSION['user_id'])) {
@@ -34,36 +38,120 @@ class CitaController {
             ], 401);
         }
         
-        $params = $request->getQueryParams();
-        $fechaInicio = $params['inicio'] ?? '';
-        $fechaFin = $params['fin'] ?? '';
+        $method = $request->getMethod();
         
-        // Obtener filtros adicionales
-        $filtros = [];
-        
-        // LÓGICA AUTOMÁTICA SEGÚN EL ROL:
-        $userRole = $_SESSION['rol'] ?? '';
-        $userId = $_SESSION['user_id'] ?? '';
-        
-        if ($userRole === 'Médico') {
-            // Si es médico, solo mostrar sus citas
-            $filtros['medico'] = $userId;
-        } elseif ($userRole === 'Paciente') {
-            // Si es paciente, solo mostrar sus citas
-            $filtros['paciente'] = $userId;
+        // Determinar si es GET (query params) o POST (JSON)
+        if ($method === 'GET') {
+            // Método original con query parameters
+            $params = $request->getQueryParams();
+            $fechaInicio = $params['inicio'] ?? '';
+            $fechaFin = $params['fin'] ?? '';
+            $filtros = [];
+            
+            // Lógica original para GET
+            $userRole = $_SESSION['rol'] ?? '';
+            $userId = $_SESSION['user_id'] ?? '';
+            
+            if ($userRole === 'Médico') {
+                $filtros['medico'] = $userId;
+            } elseif ($userRole === 'Paciente') {
+                $filtros['paciente'] = $userId;
+            } elseif (isset($params['medico']) && !empty($params['medico'])) {
+                $filtros['medico'] = $params['medico'];
+            }
+            
+            if (isset($params['especialidad']) && !empty($params['especialidad'])) {
+                $filtros['especialidad'] = $params['especialidad'];
+            }
+            
+            $citaModel = new Cita();
+            $resultado = $citaModel->consultarPorRangoFechas($fechaInicio, $fechaFin, $filtros);
+            return $response->withJson($resultado);
+            
+        } elseif ($method === 'POST') {
+            // Nueva funcionalidad con JSON
+            $data = $request->getParsedBody();
+            
+            if (!$data) {
+                return $response->withJson([
+                    'success' => false,
+                    'message' => 'Datos JSON requeridos'
+                ], 400);
+            }
+            
+            $citaModel = new Cita();
+            
+            // OPCIÓN 1: Consultar por ID específico
+            if (isset($data['id_cita']) && !empty($data['id_cita'])) {
+                if (!is_numeric($data['id_cita'])) {
+                    return $response->withJson([
+                        'success' => false,
+                        'message' => 'El ID de la cita debe ser numérico'
+                    ], 400);
+                }
+                
+                $resultado = $citaModel->consultarPorId($data['id_cita']);
+                return $response->withJson($resultado);
+            }
+            
+            // OPCIÓN 2: Consultar por rango de fechas
+            elseif (isset($data['fecha_inicio']) && isset($data['fecha_fin'])) {
+                $fechaInicio = $data['fecha_inicio'];
+                $fechaFin = $data['fecha_fin'];
+                
+                // Preparar filtros del JSON
+                $filtros = [];
+                
+                // Aplicar lógica de roles
+                $userRole = $_SESSION['rol'] ?? '';
+                $userId = $_SESSION['user_id'] ?? '';
+                
+                if ($userRole === 'Médico') {
+                    $filtros['medico'] = $userId;
+                } elseif ($userRole === 'Paciente') {
+                    $filtros['paciente'] = $userId;
+                } else {
+                    // Admin y Recepcionista pueden usar filtros opcionales
+                    if (isset($data['id_medico']) && !empty($data['id_medico'])) {
+                        $filtros['medico'] = $data['id_medico'];
+                    }
+                    
+                    if (isset($data['id_paciente']) && !empty($data['id_paciente'])) {
+                        $filtros['paciente'] = $data['id_paciente'];
+                    }
+                }
+                
+                // Filtros adicionales
+                if (isset($data['id_especialidad']) && !empty($data['id_especialidad'])) {
+                    $filtros['especialidad'] = $data['id_especialidad'];
+                }
+                
+                if (isset($data['estado']) && !empty($data['estado'])) {
+                    $filtros['estado'] = $data['estado'];
+                }
+                
+                if (isset($data['tipo_cita']) && !empty($data['tipo_cita'])) {
+                    $filtros['tipo_cita'] = $data['tipo_cita'];
+                }
+                
+                $resultado = $citaModel->consultarPorRangoFechas($fechaInicio, $fechaFin, $filtros);
+                return $response->withJson($resultado);
+            }
+            
+            // Si no cumple ninguna opción
+            else {
+                return $response->withJson([
+                    'success' => false,
+                    'message' => 'Debe enviar "id_cita" para consulta específica O "fecha_inicio" y "fecha_fin" para rango de fechas'
+                ], 400);
+            }
         }
-        // Admin y Recepcionista pueden filtrar opcionalmente
-        elseif (isset($params['medico']) && !empty($params['medico'])) {
-            $filtros['medico'] = $params['medico'];
-        }
         
-        if (isset($params['especialidad']) && !empty($params['especialidad'])) {
-            $filtros['especialidad'] = $params['especialidad'];
-        }
-        
-        $citaModel = new Cita();
-        $resultado = $citaModel->consultarPorRangoFechas($fechaInicio, $fechaFin, $filtros);
-        return $response->withJson($resultado);
+        // Método no soportado
+        return $response->withJson([
+            'success' => false,
+            'message' => 'Método no soportado. Use GET o POST'
+        ], 405);
     }
 
     public function consultarPorPaciente($request, $response, $args) {
