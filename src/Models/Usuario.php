@@ -82,6 +82,8 @@ class Usuario {
         
         return array_values($menus);
     }
+
+    
     
     private function registrarLog($userId, $accion) {
         try {
@@ -192,6 +194,63 @@ class Usuario {
             $password .= $caracteres[rand(0, strlen($caracteres) - 1)];
         }
         return $password;
+    }
+
+    public function verificarEsMedico($idUsuario) {
+        try {
+            $sql = "SELECT u.id_usuario, u.nombre, u.apellido, u.email, u.cedula, 
+                        u.telefono, u.fecha_registro, u.ultimo_acceso,
+                        r.nombre_rol,
+                        s.nombre_sucursal,
+                        -- Obtener especialidades del médico
+                        GROUP_CONCAT(e.nombre_especialidad SEPARATOR ', ') as especialidades
+                    FROM usuarios u
+                    INNER JOIN roles r ON u.id_rol = r.id_rol
+                    LEFT JOIN sucursales s ON u.id_sucursal = s.id_sucursal
+                    LEFT JOIN medico_especialidades me ON u.id_usuario = me.id_medico
+                    LEFT JOIN especialidades e ON me.id_especialidad = e.id_especialidad
+                    WHERE u.id_usuario = ? AND u.id_rol = 3 AND u.activo = 1
+                    GROUP BY u.id_usuario";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$idUsuario]);
+            $medico = $stmt->fetch();
+            
+            if (!$medico) {
+                return [
+                    'success' => false,
+                    'message' => 'No se encontró un médico activo con el ID proporcionado'
+                ];
+            }
+            
+            // Formatear los datos del médico
+            $datosMedico = [
+                'id' => $medico['id_usuario'],
+                'nombre_completo' => $medico['nombre'] . ' ' . $medico['apellido'],
+                'nombre' => $medico['nombre'],
+                'apellido' => $medico['apellido'],
+                'email' => $medico['email'],
+                'cedula' => $medico['cedula'],
+                'telefono' => $medico['telefono'],
+                'rol' => $medico['nombre_rol'],
+                'sucursal' => $medico['nombre_sucursal'],
+                'especialidades' => $medico['especialidades'] ?? 'Sin especialidades asignadas',
+                'fecha_registro' => $medico['fecha_registro'],
+                'ultimo_acceso' => $medico['ultimo_acceso']
+            ];
+            
+            return [
+                'success' => true,
+                'message' => 'Médico encontrado',
+                'data' => $datosMedico
+            ];
+            
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Error verificando médico: ' . $e->getMessage()
+            ];
+        }
     }
 }
 ?>

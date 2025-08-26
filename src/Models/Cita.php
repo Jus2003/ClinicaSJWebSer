@@ -363,5 +363,423 @@ class Cita {
         }
     }
 
+    public function buscarPorFiltros($filtros) {
+        try {
+            $sql = "SELECT c.id_cita, c.fecha_cita, c.hora_cita, c.tipo_cita, c.estado_cita, 
+                        c.motivo_consulta, c.observaciones, c.fecha_registro,
+                        CONCAT(p.nombre, ' ', p.apellido) as nombre_paciente,
+                        p.cedula as cedula_paciente,
+                        p.telefono as telefono_paciente,
+                        CONCAT(m.nombre, ' ', m.apellido) as nombre_medico,
+                        m.telefono as telefono_medico,
+                        e.nombre_especialidad,
+                        s.nombre_sucursal
+                    FROM citas c
+                    INNER JOIN usuarios p ON c.id_paciente = p.id_usuario
+                    INNER JOIN usuarios m ON c.id_medico = m.id_usuario
+                    INNER JOIN especialidades e ON c.id_especialidad = e.id_especialidad
+                    INNER JOIN sucursales s ON c.id_sucursal = s.id_sucursal
+                    WHERE 1=1";
+            
+            $params = [];
+            
+            // Aplicar filtros dinámicamente
+            if (!empty($filtros['especialidad'])) {
+                $sql .= " AND c.id_especialidad = ?";
+                $params[] = $filtros['especialidad'];
+            }
+            
+            if (!empty($filtros['medico'])) {
+                $sql .= " AND c.id_medico = ?";
+                $params[] = $filtros['medico'];
+            }
+            
+            if (!empty($filtros['paciente'])) {
+                $sql .= " AND c.id_paciente = ?";
+                $params[] = $filtros['paciente'];
+            }
+            
+            if (!empty($filtros['estado'])) {
+                $sql .= " AND c.estado_cita = ?";
+                $params[] = $filtros['estado'];
+            }
+            
+            if (!empty($filtros['tipo_cita'])) {
+                $sql .= " AND c.tipo_cita = ?";
+                $params[] = $filtros['tipo_cita'];
+            }
+            
+            $sql .= " ORDER BY c.fecha_cita DESC, c.hora_cita DESC";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            $citas = $stmt->fetchAll();
+            
+            if (empty($citas)) {
+                return [
+                    'success' => false,
+                    'message' => 'No se encontraron citas con los filtros especificados',
+                    'data' => null
+                ];
+            }
+            
+            // Calcular estadísticas
+            $estadisticas = $this->calcularEstadisticasCitas($citas);
+            
+            return [
+                'success' => true,
+                'message' => 'Citas encontradas correctamente',
+                'data' => [
+                    'citas' => $citas,
+                    'estadisticas' => $estadisticas,
+                    'total_encontradas' => count($citas)
+                ]
+            ];
+            
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Error buscando citas: ' . $e->getMessage(),
+                'data' => null
+            ];
+        }
+    }
+
+    public function consultarPorMedico($idMedico) {
+        try {
+            $sql = "SELECT c.id_cita, c.fecha_cita, c.hora_cita, c.tipo_cita, c.estado_cita, 
+                        c.motivo_consulta, c.observaciones, c.fecha_registro,
+                        CONCAT(p.nombre, ' ', p.apellido) as nombre_paciente,
+                        p.cedula as cedula_paciente,
+                        p.telefono as telefono_paciente,
+                        p.email as email_paciente,
+                        e.nombre_especialidad,
+                        s.nombre_sucursal
+                    FROM citas c
+                    INNER JOIN usuarios p ON c.id_paciente = p.id_usuario
+                    INNER JOIN especialidades e ON c.id_especialidad = e.id_especialidad
+                    INNER JOIN sucursales s ON c.id_sucursal = s.id_sucursal
+                    WHERE c.id_medico = ?
+                    ORDER BY c.fecha_cita DESC, c.hora_cita DESC";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$idMedico]);
+            $citas = $stmt->fetchAll();
+            
+            if (empty($citas)) {
+                return [
+                    'success' => true,
+                    'message' => 'El médico no tiene citas registradas',
+                    'data' => [
+                        'citas' => [],
+                        'estadisticas' => [
+                            'total_citas' => 0,
+                            'por_estado' => [],
+                            'por_tipo' => [],
+                            'por_especialidad' => []
+                        ]
+                    ]
+                ];
+            }
+            
+            // Calcular estadísticas
+            $estadisticas = $this->calcularEstadisticasCitas($citas);
+            
+            return [
+                'success' => true,
+                'message' => 'Citas del médico obtenidas correctamente',
+                'data' => [
+                    'citas' => $citas,
+                    'estadisticas' => $estadisticas,
+                    'total_encontradas' => count($citas)
+                ]
+            ];
+            
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Error consultando citas del médico: ' . $e->getMessage(),
+                'data' => null
+            ];
+        }
+    }
+
+    public function consultarPorRangoFechasYUsuario($fechaInicio, $fechaFin, $filtros) {
+        try {
+            $sql = "SELECT c.id_cita, c.fecha_cita, c.hora_cita, c.tipo_cita, c.estado_cita, 
+                        c.motivo_consulta, c.observaciones, c.fecha_registro,
+                        CONCAT(p.nombre, ' ', p.apellido) as nombre_paciente,
+                        p.cedula as cedula_paciente,
+                        p.telefono as telefono_paciente,
+                        p.email as email_paciente,
+                        CONCAT(m.nombre, ' ', m.apellido) as nombre_medico,
+                        m.cedula as cedula_medico,
+                        m.telefono as telefono_medico,
+                        e.nombre_especialidad,
+                        s.nombre_sucursal,
+                        s.direccion as direccion_sucursal
+                    FROM citas c
+                    INNER JOIN usuarios p ON c.id_paciente = p.id_usuario
+                    INNER JOIN usuarios m ON c.id_medico = m.id_usuario
+                    INNER JOIN especialidades e ON c.id_especialidad = e.id_especialidad
+                    INNER JOIN sucursales s ON c.id_sucursal = s.id_sucursal
+                    WHERE c.fecha_cita BETWEEN ? AND ?";
+            
+            $params = [$fechaInicio, $fechaFin];
+            
+            // Aplicar filtros dinámicamente
+            if (!empty($filtros['paciente'])) {
+                $sql .= " AND c.id_paciente = ?";
+                $params[] = $filtros['paciente'];
+            }
+            
+            if (!empty($filtros['medico'])) {
+                $sql .= " AND c.id_medico = ?";
+                $params[] = $filtros['medico'];
+            }
+            
+            if (!empty($filtros['especialidad'])) {
+                $sql .= " AND c.id_especialidad = ?";
+                $params[] = $filtros['especialidad'];
+            }
+            
+            if (!empty($filtros['estado'])) {
+                $sql .= " AND c.estado_cita = ?";
+                $params[] = $filtros['estado'];
+            }
+            
+            if (!empty($filtros['tipo_cita'])) {
+                $sql .= " AND c.tipo_cita = ?";
+                $params[] = $filtros['tipo_cita'];
+            }
+            
+            $sql .= " ORDER BY c.fecha_cita ASC, c.hora_cita ASC";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            $citas = $stmt->fetchAll();
+            
+            if (empty($citas)) {
+                return [
+                    'success' => true,
+                    'message' => 'No se encontraron citas en el rango de fechas especificado',
+                    'data' => [
+                        'rango_fechas' => [
+                            'fecha_inicio' => $fechaInicio,
+                            'fecha_fin' => $fechaFin
+                        ],
+                        'citas_por_fecha' => [],
+                        'todas_las_citas' => [],
+                        'estadisticas' => [
+                            'total_citas' => 0,
+                            'por_estado' => [],
+                            'por_tipo' => [],
+                            'por_especialidad' => []
+                        ]
+                    ]
+                ];
+            }
+            
+            // Agrupar por fechas para mejor visualización
+            $citasPorFecha = $this->agruparCitasPorFecha($citas);
+            $estadisticas = $this->calcularEstadisticasCitas($citas);
+            
+            return [
+                'success' => true,
+                'message' => 'Citas encontradas correctamente',
+                'data' => [
+                    'rango_fechas' => [
+                        'fecha_inicio' => $fechaInicio,
+                        'fecha_fin' => $fechaFin
+                    ],
+                    'citas_por_fecha' => $citasPorFecha,
+                    'todas_las_citas' => $citas,
+                    'estadisticas' => $estadisticas,
+                    'total_encontradas' => count($citas)
+                ]
+            ];
+            
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Error consultando citas por fechas y usuario: ' . $e->getMessage(),
+                'data' => null
+            ];
+        }
+    }
+
+     public function listarTodasCompletas($filtros = [], $limite = 100, $pagina = 1) {
+        try {
+            $sql = "SELECT c.id_cita, c.fecha_cita, c.hora_cita, c.tipo_cita, c.estado_cita, 
+                        c.motivo_consulta, c.observaciones, c.fecha_registro,
+                        
+                        -- Información del paciente
+                        CONCAT(p.nombre, ' ', p.apellido) as nombre_paciente,
+                        p.cedula as cedula_paciente,
+                        p.telefono as telefono_paciente,
+                        p.email as email_paciente,
+                        
+                        -- Información del médico
+                        CONCAT(m.nombre, ' ', m.apellido) as nombre_medico,
+                        m.cedula as cedula_medico,
+                        m.telefono as telefono_medico,
+                        
+                        -- Información adicional
+                        e.nombre_especialidad,
+                        s.nombre_sucursal,
+                        s.direccion as direccion_sucursal,
+                        s.telefono as telefono_sucursal
+                        
+                    FROM citas c
+                    INNER JOIN usuarios p ON c.id_paciente = p.id_usuario
+                    INNER JOIN usuarios m ON c.id_medico = m.id_usuario
+                    INNER JOIN especialidades e ON c.id_especialidad = e.id_especialidad
+                    INNER JOIN sucursales s ON c.id_sucursal = s.id_sucursal
+                    WHERE 1=1";
+            
+            $params = [];
+            
+            // Aplicar filtros dinámicamente
+            if (!empty($filtros['estado'])) {
+                $sql .= " AND c.estado_cita = ?";
+                $params[] = $filtros['estado'];
+            }
+            
+            if (!empty($filtros['fecha_desde'])) {
+                $sql .= " AND c.fecha_cita >= ?";
+                $params[] = $filtros['fecha_desde'];
+            }
+            
+            if (!empty($filtros['fecha_hasta'])) {
+                $sql .= " AND c.fecha_cita <= ?";
+                $params[] = $filtros['fecha_hasta'];
+            }
+            
+            if (!empty($filtros['especialidad'])) {
+                $sql .= " AND c.id_especialidad = ?";
+                $params[] = $filtros['especialidad'];
+            }
+            
+            if (!empty($filtros['sucursal'])) {
+                $sql .= " AND c.id_sucursal = ?";
+                $params[] = $filtros['sucursal'];
+            }
+            
+            // Ordenar por fecha y hora más recientes primero
+            $sql .= " ORDER BY c.fecha_cita DESC, c.hora_cita DESC";
+            
+            // Contar total de registros sin límite
+            $sqlCount = "SELECT COUNT(*) as total
+                        FROM citas c
+                        INNER JOIN usuarios p ON c.id_paciente = p.id_usuario
+                        INNER JOIN usuarios m ON c.id_medico = m.id_usuario
+                        INNER JOIN especialidades e ON c.id_especialidad = e.id_especialidad
+                        INNER JOIN sucursales s ON c.id_sucursal = s.id_sucursal
+                        WHERE 1=1";
+            
+            // Aplicar los mismos filtros al conteo
+            if (!empty($filtros['estado'])) {
+                $sqlCount .= " AND c.estado_cita = ?";
+            }
+            if (!empty($filtros['fecha_desde'])) {
+                $sqlCount .= " AND c.fecha_cita >= ?";
+            }
+            if (!empty($filtros['fecha_hasta'])) {
+                $sqlCount .= " AND c.fecha_cita <= ?";
+            }
+            if (!empty($filtros['especialidad'])) {
+                $sqlCount .= " AND c.id_especialidad = ?";
+            }
+            if (!empty($filtros['sucursal'])) {
+                $sqlCount .= " AND c.id_sucursal = ?";
+            }
+            
+            $stmtCount = $this->db->prepare($sqlCount);
+            $stmtCount->execute($params);
+            $totalRegistros = $stmtCount->fetch()['total'];
+            
+            // Aplicar paginación
+            $offset = ($pagina - 1) * $limite;
+            $sql .= " LIMIT ? OFFSET ?";
+            $params[] = $limite;
+            $params[] = $offset;
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            $citas = $stmt->fetchAll();
+            
+            // Calcular estadísticas
+            $estadisticas = $this->calcularEstadisticasCompletas($citas);
+            
+            // Estados disponibles para cambios
+            $estadosDisponibles = [
+                'programada' => 'Programada',
+                'confirmada' => 'Confirmada',
+                'en_proceso' => 'En Proceso',
+                'completada' => 'Completada',
+                'cancelada' => 'Cancelada',
+                'no_asistio' => 'No Asistió',
+                'reprogramada' => 'Reprogramada'
+            ];
+            
+            return [
+                'success' => true,
+                'message' => 'Todas las citas obtenidas correctamente',
+                'data' => [
+                    'citas' => $citas,
+                    'total_registros' => $totalRegistros,
+                    'estadisticas' => $estadisticas,
+                    'estados_disponibles' => $estadosDisponibles
+                ]
+            ];
+            
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Error consultando todas las citas: ' . $e->getMessage(),
+                'data' => null
+            ];
+        }
+    }
+    
+    /**
+     * Calcular estadísticas más completas
+     */
+    private function calcularEstadisticasCompletas($citas) {
+        $total = count($citas);
+        $estadisticas = [
+            'total_citas' => $total,
+            'por_estado' => [],
+            'por_tipo' => [],
+            'por_especialidad' => [],
+            'por_sucursal' => [],
+            'por_fecha' => []
+        ];
+        
+        foreach ($citas as $cita) {
+            // Por estado
+            $estado = $cita['estado_cita'];
+            $estadisticas['por_estado'][$estado] = ($estadisticas['por_estado'][$estado] ?? 0) + 1;
+            
+            // Por tipo
+            $tipo = $cita['tipo_cita'];
+            $estadisticas['por_tipo'][$tipo] = ($estadisticas['por_tipo'][$tipo] ?? 0) + 1;
+            
+            // Por especialidad
+            $especialidad = $cita['nombre_especialidad'];
+            $estadisticas['por_especialidad'][$especialidad] = ($estadisticas['por_especialidad'][$especialidad] ?? 0) + 1;
+            
+            // Por sucursal
+            $sucursal = $cita['nombre_sucursal'];
+            $estadisticas['por_sucursal'][$sucursal] = ($estadisticas['por_sucursal'][$sucursal] ?? 0) + 1;
+            
+            // Por fecha
+            $fecha = $cita['fecha_cita'];
+            $estadisticas['por_fecha'][$fecha] = ($estadisticas['por_fecha'][$fecha] ?? 0) + 1;
+        }
+        
+        return $estadisticas;
+    }
+
 }
 ?>

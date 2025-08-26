@@ -9,21 +9,21 @@ class PerfilController {
     
     public function cambiarPassword(Request $request, Response $response) {
         try {
-            // Verificar sesión
-            if (!isset($_SESSION['user_id'])) {
+            $data = $request->getParsedBody();
+            
+            // Validar que se proporcione el ID del usuario
+            if (empty($data['user_id'])) {
                 $result = [
-                    'status' => 401,
+                    'status' => 400,
                     'success' => false,
-                    'message' => 'No hay sesión activa',
+                    'message' => 'El ID del usuario es requerido',
                     'data' => null
                 ];
                 $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
-                return $response->withHeader('Content-Type', 'application/json')->withStatus(401);
+                return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
             }
             
-            $data = $request->getParsedBody();
-            
-            // Validaciones
+            // Validaciones de campos
             if (empty($data['password_actual']) || empty($data['password_nueva']) || empty($data['confirmar_password'])) {
                 $result = [
                     'status' => 400,
@@ -59,7 +59,7 @@ class PerfilController {
             
             $usuarioModel = new Usuario();
             $resultado = $usuarioModel->cambiarPassword(
-                $_SESSION['user_id'], 
+                $data['user_id'],  // Usar el ID del body en lugar de la sesión
                 $data['password_actual'], 
                 $data['password_nueva']
             );
@@ -69,7 +69,10 @@ class PerfilController {
                     'status' => 200,
                     'success' => true,
                     'message' => $resultado['message'],
-                    'data' => null
+                    'data' => [
+                        'user_id' => $data['user_id'],
+                        'timestamp' => date('Y-m-d H:i:s')
+                    ]
                 ];
                 $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
                 return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
