@@ -293,48 +293,131 @@ class Paciente {
     }
 
     public function listarTodos() {
-    $sql = "SELECT u.id_usuario, u.cedula, u.nombre, u.apellido, u.email, u.telefono,
-                   u.fecha_nacimiento, u.genero, s.nombre_sucursal,
-                   COUNT(c.id_cita) as total_citas
-            FROM usuarios u 
-            LEFT JOIN sucursales s ON u.id_sucursal = s.id_sucursal 
-            LEFT JOIN citas c ON u.id_usuario = c.id_paciente
-            WHERE u.id_rol = 4 AND u.activo = 1
-            GROUP BY u.id_usuario
-            ORDER BY u.nombre, u.apellido";
-    
-    $stmt = $this->db->prepare($sql);
-    $stmt->execute();
-    $pacientes = $stmt->fetchAll();
-    
-    $resultado = [];
-    foreach ($pacientes as $paciente) {
-        $edad = null;
-        if ($paciente['fecha_nacimiento']) {
-            $fechaNac = new \DateTime($paciente['fecha_nacimiento']);
-            $hoy = new \DateTime();
-            $edad = $fechaNac->diff($hoy)->y;
+        $sql = "SELECT u.id_usuario, u.cedula, u.nombre, u.apellido, u.email, u.telefono,
+                    u.fecha_nacimiento, u.genero, s.nombre_sucursal,
+                    COUNT(c.id_cita) as total_citas
+                FROM usuarios u 
+                LEFT JOIN sucursales s ON u.id_sucursal = s.id_sucursal 
+                LEFT JOIN citas c ON u.id_usuario = c.id_paciente
+                WHERE u.id_rol = 4 AND u.activo = 1
+                GROUP BY u.id_usuario
+                ORDER BY u.nombre, u.apellido";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        $pacientes = $stmt->fetchAll();
+        
+        $resultado = [];
+        foreach ($pacientes as $paciente) {
+            $edad = null;
+            if ($paciente['fecha_nacimiento']) {
+                $fechaNac = new \DateTime($paciente['fecha_nacimiento']);
+                $hoy = new \DateTime();
+                $edad = $fechaNac->diff($hoy)->y;
+            }
+            
+            $resultado[] = [
+                'id_paciente' => $paciente['id_usuario'],
+                'cedula' => $paciente['cedula'],
+                'nombre_completo' => $paciente['nombre'] . ' ' . $paciente['apellido'],
+                'email' => $paciente['email'],
+                'telefono' => $paciente['telefono'],
+                'edad' => $edad,
+                'genero' => $paciente['genero'],
+                'sucursal' => $paciente['nombre_sucursal'],
+                'total_citas' => $paciente['total_citas']
+            ];
         }
         
-        $resultado[] = [
-            'id_paciente' => $paciente['id_usuario'],
-            'cedula' => $paciente['cedula'],
-            'nombre_completo' => $paciente['nombre'] . ' ' . $paciente['apellido'],
-            'email' => $paciente['email'],
-            'telefono' => $paciente['telefono'],
-            'edad' => $edad,
-            'genero' => $paciente['genero'],
-            'sucursal' => $paciente['nombre_sucursal'],
-            'total_citas' => $paciente['total_citas']
+        return [
+            'success' => true,
+            'message' => 'Lista de pacientes obtenida correctamente',
+            'data' => $resultado
         ];
     }
-    
-    return [
-        'success' => true,
-        'message' => 'Lista de pacientes obtenida correctamente',
-        'data' => $resultado
-    ];
-}
+
+    public function crearPaciente($datos) {
+        try {
+            // Validaciones básicas
+            if (
+                empty($datos['username']) ||
+                empty($datos['email']) ||
+                empty($datos['cedula']) ||
+                empty($datos['nombre']) ||
+                empty($datos['apellido'])
+            ) {
+                return [
+                    'success' => false,
+                    'message' => 'Todos los campos obligatorios deben estar completos',
+                    'errores' => [
+                        'username, email, cedula, nombre y apellido son requeridos'
+                    ]
+                ];
+            }
+
+            $this->db->beginTransaction();
+
+            // Generar contraseña temporal
+            $passwordTemporal = $this->generarPasswordTemporal();
+
+            // Insertar en tabla usuarios (id_rol = 4 para pacientes)
+            $sql = "INSERT INTO usuarios 
+                    (username, email, password, cedula, nombre, apellido, 
+                    fecha_nacimiento, genero, telefono, direccion, id_rol, 
+                    activo, requiere_cambio_contrasena, clave_temporal) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 4, 1, 1, ?)";
+
+            $stmt = $this->db->prepare($sql);
+            $resultado = $stmt->execute([
+                $datos['username'],
+                $datos['email'],
+                base64_encode($passwordTemporal),
+                $datos['cedula'],
+                $datos['nombre'],
+                $datos['apellido'],
+                $datos['fecha_nacimiento'] ?? null,
+                $datos['genero'] ?? null,
+                $datos['telefono'] ?? null,
+                $datos['direccion'] ?? null,
+                $passwordTemporal
+            ]);
+
+            if (!$resultado) {
+                $this->db->rollBack();
+                return ['success' => false, 'message' => 'Error al crear el paciente'];
+            }
+
+            $idPaciente = $this->db->lastInsertId();
+            $this->db->commit();
+
+            // Enviar email con contraseña temporal
+            $emailService = new EmailService();
+            $nombreCompleto = $datos['nombre'] . ' ' . $datos['apellido'];
+            $resultadoEmail = $emailService->enviarPasswordTemporal(
+                $datos['email'],
+                $nombreCompleto,
+                $datos['username'],
+                $passwordTemporal
+            );
+
+            return [
+                'success' => true,
+                'message' => 'Paciente creado exitosamente',
+                'data' => [
+                    'id_paciente' => $idPaciente,
+                    'nombre_completo' => $nombreCompleto,
+                    'username' => $datos['username'],
+                    'email' => $datos['email'],
+                    'password_temporal' => $passwordTemporal, // ⚠️ solo en testing
+                    'email_enviado' => $resultadoEmail['success']
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            $this->db->rollBack();
+            return ['success' => false, 'message' => 'Error: ' . $e->getMessage()];
+        }
+    }
 
 }
 ?>

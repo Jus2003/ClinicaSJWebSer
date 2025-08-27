@@ -242,11 +242,16 @@ class Medico {
     }
 
     public function existeMedico($id_medico) {
-        $sql = "SELECT COUNT(*) FROM usuarios WHERE id_usuario = ? AND tipo_usuario = 'medico' AND activo = 1";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$id_medico]);
-        return $stmt->fetchColumn() > 0;
+    $sql = "SELECT COUNT(*) 
+            FROM usuarios 
+            WHERE id_usuario = ? 
+              AND id_rol = 3 
+              AND activo = 1";
+    $stmt = $this->db->prepare($sql);
+    $stmt->execute([$id_medico]);
+    return $stmt->fetchColumn() > 0;
     }
+
 
     public function listarTodos() {
         try {
@@ -373,31 +378,32 @@ class Medico {
     {
         try {
             $sql = "
-                SELECT 
-                    h.id_horario,
-                    h.id_medico,
-                    h.id_sucursal,
-                    s.nombre AS nombre_sucursal,
-                    h.dia_semana,
-                    CASE h.dia_semana
-                        WHEN 1 THEN 'Lunes'
-                        WHEN 2 THEN 'Martes'
-                        WHEN 3 THEN 'Miércoles'
-                        WHEN 4 THEN 'Jueves'
-                        WHEN 5 THEN 'Viernes'
-                        WHEN 6 THEN 'Sábado'
-                        WHEN 7 THEN 'Domingo'
-                    END AS nombre_dia,
-                    h.hora_inicio,
-                    h.hora_fin,
-                    h.activo,
-                    h.fecha_creacion
-                FROM horarios_medicos h
-                INNER JOIN sucursales s ON h.id_sucursal = s.id_sucursal
-                WHERE h.id_medico = ? 
-                AND h.activo = 1
-                ORDER BY h.dia_semana, h.hora_inicio
-            ";
+            SELECT 
+                h.id_horario,
+                h.id_medico,
+                h.id_sucursal,
+                s.nombre_sucursal AS nombre_sucursal,
+                h.dia_semana,
+                CASE h.dia_semana
+                    WHEN 1 THEN 'Lunes'
+                    WHEN 2 THEN 'Martes'
+                    WHEN 3 THEN 'Miércoles'
+                    WHEN 4 THEN 'Jueves'
+                    WHEN 5 THEN 'Viernes'
+                    WHEN 6 THEN 'Sábado'
+                    WHEN 7 THEN 'Domingo'
+                END AS nombre_dia,
+                h.hora_inicio,
+                h.hora_fin,
+                h.activo,
+                h.fecha_creacion
+            FROM horarios_medicos h
+            INNER JOIN sucursales s ON h.id_sucursal = s.id_sucursal
+            WHERE h.id_medico = ? 
+            AND h.activo = 1
+            ORDER BY h.dia_semana, h.hora_inicio
+        ";
+
 
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$id_medico]);

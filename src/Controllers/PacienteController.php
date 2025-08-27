@@ -6,6 +6,11 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
 class PacienteController {
+    private $paciente;
+
+    public function __construct() {
+        $this->paciente = new PacienteModel();
+    }
     
     public function buscarPorCedula(Request $request, Response $response, $args) {
         try {
@@ -395,6 +400,57 @@ class PacienteController {
         $resultado = $pacienteModel->listarTodos();
         return $response->withJson($resultado);
     }
+
+
+    public function crearPaciente(Request $request, Response $response) {
+    try {
+        $data = $request->getParsedBody();
+
+        // Validación básica de datos
+        if (empty($data)) {
+            $result = [
+                'status' => 400,
+                'success' => false,
+                'message' => 'No se recibieron datos',
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+        $resultado = $this->paciente->crearPaciente($data);
+
+        if ($resultado['success']) {
+            $result = [
+                'status' => 201,
+                'success' => true,
+                'message' => $resultado['message'],
+                'data' => $resultado['data']
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(201);
+        } else {
+            $result = [
+                'status' => 400,
+                'success' => false,
+                'message' => $resultado['message'],
+                'data' => isset($resultado['errores']) ? ['errores' => $resultado['errores']] : null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+    } catch (\Exception $e) {
+        $result = [
+            'status' => 500,
+            'success' => false,
+            'message' => 'Error interno del servidor: ' . $e->getMessage(),
+            'data' => null
+        ];
+        $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+    }
+}
 
 
 }

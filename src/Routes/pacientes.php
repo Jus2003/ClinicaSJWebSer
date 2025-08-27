@@ -13,5 +13,6 @@ $app->group('/pacientes', function ($group) {
     $group->get('/historial-lista', [PacienteController::class, 'listarPacientesHistorial']);
     $group->get('/historial-lista/{rol}', [PacienteController::class, 'listarPacientesHistorialPorRol']);
     $group->get('/listar', [PacienteController::class, 'listarTodos']);
+    $group->post('/crear', [PacienteController::class, 'crearPaciente']);
 });
 ?>
