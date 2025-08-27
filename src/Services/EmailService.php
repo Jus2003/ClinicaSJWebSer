@@ -717,186 +717,237 @@ private function generarTextoPlanoNotificacionCita($nombre, $datosCita, $tipo) {
 }
 
 /**
- * Cambiar estado de una cita y enviar notificaciones
+ * Enviar notificación de cambio de estado de cita
  */
-public function cambiarEstadoCita($idCita, $nuevoEstado, $motivoCambio = null) {
+public function enviarNotificacionCambioEstado($email, $nombre, $datosCita, $tipo) {
     try {
-        $this->db->beginTransaction();
-        
-        // 1. Obtener información completa de la cita actual
-        $sqlCita = "
-            SELECT 
-                c.id_cita, c.estado_cita as estado_actual, c.fecha_cita, c.hora_cita, 
-                c.tipo_cita, c.motivo_consulta, c.enlace_virtual, c.zoom_meeting_id, c.zoom_password,
-                p.id_usuario as id_paciente, p.nombre as nombre_paciente, p.apellido as apellido_paciente, p.email as email_paciente,
-                m.id_usuario as id_medico, m.nombre as nombre_medico, m.apellido as apellido_medico, m.email as email_medico,
-                e.nombre_especialidad as especialidad,
-                s.nombre_sucursal as sucursal, s.direccion as direccion_sucursal
-            FROM citas c
-            INNER JOIN usuarios p ON c.id_paciente = p.id_usuario
-            INNER JOIN usuarios m ON c.id_medico = m.id_usuario
-            INNER JOIN especialidades e ON c.id_especialidad = e.id_especialidad
-            INNER JOIN sucursales s ON c.id_sucursal = s.id_sucursal
-            WHERE c.id_cita = ?
-        ";
-        
-        $stmt = $this->db->prepare($sqlCita);
-        $stmt->execute([$idCita]);
-        $cita = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if (!$cita) {
-            $this->db->rollback();
-            return [
-                'success' => false,
-                'message' => 'No se encontró la cita especificada'
-            ];
-        }
-        
-        // Verificar si ya tiene ese estado
-        if ($cita['estado_actual'] === $nuevoEstado) {
-            $this->db->rollback();
-            return [
-                'success' => false,
-                'message' => "La cita ya tiene el estado: {$nuevoEstado}"
-            ];
-        }
-        
-        // 2. Actualizar estado de la cita
-        $camposActualizar = ['estado_cita = ?'];
-        $valoresActualizar = [$nuevoEstado];
-        
-        // Agregar campos específicos según el nuevo estado
-        if ($nuevoEstado === 'confirmada') {
-            $camposActualizar[] = 'fecha_confirmacion = NOW()';
-        } elseif ($nuevoEstado === 'cancelada') {
-            $camposActualizar[] = 'fecha_cancelacion = NOW()';
-            if ($motivoCambio) {
-                $camposActualizar[] = 'motivo_cancelacion = ?';
-                $valoresActualizar[] = $motivoCambio;
-            }
-        }
-        
-        $sqlUpdate = "UPDATE citas SET " . implode(', ', $camposActualizar) . " WHERE id_cita = ?";
-        $valoresActualizar[] = $idCita;
-        
-        $stmt = $this->db->prepare($sqlUpdate);
-        $resultado = $stmt->execute($valoresActualizar);
-        
-        if (!$resultado) {
-            $this->db->rollback();
-            return [
-                'success' => false,
-                'message' => 'Error al actualizar el estado de la cita'
-            ];
-        }
-        
-        $this->db->commit();
-        
-        // 3. Preparar datos para emails
-        $datosCita = [
-            'id_cita' => $cita['id_cita'],
-            'estado_anterior' => $cita['estado_actual'],
-            'estado_nuevo' => $nuevoEstado,
-            'fecha_cita' => $cita['fecha_cita'],
-            'hora_cita' => $cita['hora_cita'],
-            'nombre_paciente' => $cita['nombre_paciente'] . ' ' . $cita['apellido_paciente'],
-            'nombre_medico' => $cita['nombre_medico'] . ' ' . $cita['apellido_medico'],
-            'especialidad' => $cita['especialidad'],
-            'sucursal' => $cita['sucursal'],
-            'direccion_sucursal' => $cita['direccion_sucursal'],
-            'tipo_cita' => $cita['tipo_cita'],
-            'motivo_consulta' => $cita['motivo_consulta'],
-            'motivo_cambio' => $motivoCambio,
-            'enlace_virtual' => $cita['enlace_virtual'],
-            'zoom_meeting_id' => $cita['zoom_meeting_id'],
-            'zoom_password' => $cita['zoom_password']
+        // Determinar el asunto según el nuevo estado
+        $estadosAsuntos = [
+            'confirmada' => '✅ Cita Confirmada',
+            'cancelada' => '❌ Cita Cancelada',
+            'completada' => '✅ Cita Completada',
+            'en_curso' => '🏥 Cita en Curso',
+            'no_asistio' => '⚠️ Registro de No Asistencia'
         ];
         
-        // 4. Enviar notificaciones por email
-        $emailsEnviados = ['paciente' => false, 'medico' => false];
+        $nuevoEstado = $datosCita['estado_nuevo'];
+        $asuntoBase = $estadosAsuntos[$nuevoEstado] ?? 'Cambio de Estado de Cita';
+        $asunto = $asuntoBase . ' - Cita #' . str_pad($datosCita['id_cita'], 6, '0', STR_PAD_LEFT);
         
-        try {
-            $emailService = new \App\Services\EmailService();
-            
-            // Email al paciente
-            $resultadoPaciente = $emailService->enviarNotificacionCambioEstado(
-                $cita['email_paciente'],
-                $cita['nombre_paciente'] . ' ' . $cita['apellido_paciente'],
-                $datosCita,
-                'paciente'
-            );
-            $emailsEnviados['paciente'] = $resultadoPaciente['success'] ?? false;
-            
-            // Email al médico
-            $resultadoMedico = $emailService->enviarNotificacionCambioEstado(
-                $cita['email_medico'],
-                $cita['nombre_medico'] . ' ' . $cita['apellido_medico'],
-                $datosCita,
-                'medico'
-            );
-            $emailsEnviados['medico'] = $resultadoMedico['success'] ?? false;
-            
-        } catch (\Exception $e) {
-            error_log("Error enviando emails de cambio de estado: " . $e->getMessage());
-        }
+        // Generar el mensaje HTML
+        $mensaje = $this->generarPlantillaCambioEstado($nombre, $datosCita, $tipo);
         
-        // 5. Preparar mensaje de estado
-        $mensajesEstado = [
-            'agendada' => 'La cita ha sido agendada',
-            'confirmada' => 'La cita ha sido confirmada',
-            'en_curso' => 'La cita está en curso',
-            'completada' => 'La cita ha sido completada',
-            'cancelada' => 'La cita ha sido cancelada',
-            'no_asistio' => 'Se ha registrado que el paciente no asistió'
-        ];
+        // Generar versión de texto plano
+        $textoPlano = $this->generarTextoPlanoNotificacionCambioEstado($nombre, $datosCita, $tipo);
         
-        return [
-            'success' => true,
-            'message' => 'Estado de cita actualizado exitosamente',
-            'data' => [
-                'cambio_exitoso' => '✅ COMPLETADO',
-                'id_cita' => $idCita,
-                'numero_cita' => str_pad($idCita, 6, '0', STR_PAD_LEFT),
-                'estado_anterior' => $cita['estado_actual'],
-                'estado_nuevo' => $nuevoEstado,
-                'mensaje_estado' => $mensajesEstado[$nuevoEstado] ?? 'Estado actualizado',
-                'motivo_cambio' => $motivoCambio,
-                'paciente' => [
-                    'nombre' => $cita['nombre_paciente'] . ' ' . $cita['apellido_paciente'],
-                    'email' => $cita['email_paciente']
-                ],
-                'medico' => [
-                    'nombre' => $cita['nombre_medico'] . ' ' . $cita['apellido_medico'],
-                    'email' => $cita['email_medico']
-                ],
-                'cita' => [
-                    'fecha' => $cita['fecha_cita'],
-                    'hora' => $cita['hora_cita'],
-                    'tipo' => $cita['tipo_cita'],
-                    'especialidad' => $cita['especialidad']
-                ],
-                'notificaciones' => [
-                    'email_paciente' => $emailsEnviados['paciente'] ? '✅ Enviado' : '❌ Error al enviar',
-                    'email_medico' => $emailsEnviados['medico'] ? '✅ Enviado' : '❌ Error al enviar',
-                    'mensaje' => ($emailsEnviados['paciente'] && $emailsEnviados['medico']) 
-                        ? 'Notificaciones enviadas exitosamente a ambos'
-                        : (($emailsEnviados['paciente'] || $emailsEnviados['medico']) 
-                            ? 'Algunas notificaciones fueron enviadas' 
-                            : 'Las notificaciones no pudieron enviarse')
-                ],
-                'timestamp' => date('Y-m-d H:i:s')
-            ]
-        ];
+        return $this->enviarEmail($email, $asunto, $mensaje, $textoPlano);
         
     } catch (\Exception $e) {
-        if ($this->db->inTransaction()) {
-            $this->db->rollback();
-        }
-        return [
-            'success' => false,
-            'message' => 'Error al cambiar estado de cita: ' . $e->getMessage()
-        ];
+        error_log("Error enviando notificación de cambio de estado: " . $e->getMessage());
+        return ['success' => false, 'message' => 'Error al enviar notificación: ' . $e->getMessage()];
     }
 }
+
+/**
+ * Generar plantilla HTML para cambio de estado
+ */
+private function generarPlantillaCambioEstado($nombre, $datosCita, $tipo) {
+    $fechaFormateada = date('l, d \d\e F \d\e Y', strtotime($datosCita['fecha_cita']));
+    $horaFormateada = date('H:i', strtotime($datosCita['hora_cita']));
+    
+    // Determinar colores y emojis según el estado
+    $estadoConfig = [
+        'confirmada' => ['color' => '#28a745', 'emoji' => '✅', 'titulo' => 'Cita Confirmada'],
+        'cancelada' => ['color' => '#dc3545', 'emoji' => '❌', 'titulo' => 'Cita Cancelada'],
+        'completada' => ['color' => '#007bff', 'emoji' => '✅', 'titulo' => 'Cita Completada'],
+        'en_curso' => ['color' => '#fd7e14', 'emoji' => '🏥', 'titulo' => 'Cita en Curso'],
+        'no_asistio' => ['color' => '#6c757d', 'emoji' => '⚠️', 'titulo' => 'No Asistencia Registrada']
+    ];
+    
+    $config = $estadoConfig[$datosCita['estado_nuevo']] ?? ['color' => '#6c757d', 'emoji' => '📋', 'titulo' => 'Estado Actualizado'];
+    
+    $saludo = ($tipo === 'paciente') ? "Estimado/a {$nombre}" : "Dr. {$nombre}";
+    $mensaje_principal = ($tipo === 'paciente') ? 
+        "Le informamos que el estado de su cita médica ha cambiado:" : 
+        "Le informamos sobre un cambio en el estado de la cita:";
+    
+    return "
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset='UTF-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+        <title>Cambio de Estado - Cita Médica</title>
+    </head>
+    <body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f4f4f4;'>
+        <div style='max-width: 600px; margin: 0 auto; background-color: white; border-radius: 10px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.1);'>
+            
+            <!-- Header -->
+            <div style='background: linear-gradient(135deg, {$config['color']}, " . $this->darkenColor($config['color'], 20) . "); padding: 30px; text-align: center; color: white;'>
+                <h1 style='margin: 0; font-size: 28px; font-weight: bold;'>
+                    {$config['emoji']} {$config['titulo']}
+                </h1>
+                <p style='margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;'>Clínica SJ - Sistema de Citas</p>
+            </div>
+            
+            <!-- Contenido Principal -->
+            <div style='padding: 30px;'>
+                <p style='font-size: 18px; margin-bottom: 25px; color: #2c3e50;'>
+                    {$saludo},
+                </p>
+                
+                <p style='font-size: 16px; margin-bottom: 25px; line-height: 1.8;'>
+                    {$mensaje_principal}
+                </p>
+                
+                <!-- Información del Estado -->
+                <div style='background-color: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid {$config['color']}; margin: 20px 0;'>
+                    <h3 style='margin: 0 0 10px 0; color: {$config['color']}; font-size: 18px;'>
+                        {$config['emoji']} Estado: {$config['titulo']}
+                    </h3>
+                    <p style='margin: 5px 0; color: #6c757d;'>
+                        <strong>Estado anterior:</strong> " . ucfirst($datosCita['estado_anterior']) . "
+                    </p>";
+    
+    if (!empty($datosCita['motivo_cambio'])) {
+        $html .= "
+                    <p style='margin: 5px 0; color: #6c757d;'>
+                        <strong>Motivo:</strong> {$datosCita['motivo_cambio']}
+                    </p>";
+    }
+    
+    $html .= "
+                </div>
+                
+                <!-- Detalles de la Cita -->
+                <div style='background-color: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 20px 0;'>
+                    <h3 style='margin: 0 0 15px 0; color: #495057; border-bottom: 2px solid #e9ecef; padding-bottom: 10px;'>
+                        📋 Detalles de la Cita
+                    </h3>
+                    
+                    <div style='display: grid; gap: 10px;'>
+                        <p style='margin: 5px 0; padding: 8px 0; border-bottom: 1px solid #f8f9fa;'>
+                            <strong style='color: #495057;'>🗓️ Fecha:</strong> {$fechaFormateada}
+                        </p>
+                        <p style='margin: 5px 0; padding: 8px 0; border-bottom: 1px solid #f8f9fa;'>
+                            <strong style='color: #495057;'>⏰ Hora:</strong> {$horaFormateada}
+                        </p>";
+    
+    if ($tipo === 'paciente') {
+        $html .= "
+                        <p style='margin: 5px 0; padding: 8px 0; border-bottom: 1px solid #f8f9fa;'>
+                            <strong style='color: #495057;'>👨‍⚕️ Médico:</strong> {$datosCita['nombre_medico']}
+                        </p>";
+    } else {
+        $html .= "
+                        <p style='margin: 5px 0; padding: 8px 0; border-bottom: 1px solid #f8f9fa;'>
+                            <strong style='color: #495057;'>👤 Paciente:</strong> {$datosCita['nombre_paciente']}
+                        </p>";
+    }
+    
+    $html .= "
+                        <p style='margin: 5px 0; padding: 8px 0; border-bottom: 1px solid #f8f9fa;'>
+                            <strong style='color: #495057;'>🏥 Especialidad:</strong> {$datosCita['especialidad']}
+                        </p>
+                        <p style='margin: 5px 0; padding: 8px 0;'>
+                            <strong style='color: #495057;'>📍 Tipo:</strong> " . ucfirst($datosCita['tipo_cita']) . "
+                        </p>
+                    </div>
+                </div>";
+    
+    // Información adicional según el tipo de cita
+    if ($datosCita['tipo_cita'] === 'virtual' && !empty($datosCita['enlace_virtual'])) {
+        $html .= "
+                <!-- Información Virtual -->
+                <div style='background: linear-gradient(135deg, #17a2b8, #138496); padding: 20px; border-radius: 8px; margin: 20px 0; color: white;'>
+                    <h3 style='margin: 0 0 15px 0; font-size: 18px;'>🎥 Información de Conexión Virtual</h3>
+                    <p style='margin: 8px 0;'><strong>Enlace:</strong> {$datosCita['enlace_virtual']}</p>
+                    <p style='margin: 8px 0;'><strong>ID de reunión:</strong> {$datosCita['zoom_meeting_id']}</p>
+                    <p style='margin: 8px 0;'><strong>Contraseña:</strong> {$datosCita['zoom_password']}</p>
+                </div>";
+    }
+    
+    $html .= "
+            </div>
+            
+            <!-- Footer -->
+            <div style='background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #dee2e6;'>
+                <p style='margin: 0; color: #6c757d; font-size: 14px;'>
+                    Este es un mensaje automático del Sistema de Citas de Clínica SJ
+                </p>
+                <p style='margin: 5px 0 0 0; color: #6c757d; font-size: 14px;'>
+                    📧 Soporte: " . EmailConfig::SUPPORT_EMAIL . "
+                </p>
+            </div>
+        </div>
+    </body>
+    </html>";
+    
+    return $html;
+}
+
+/**
+ * Generar texto plano para cambio de estado
+ */
+private function generarTextoPlanoNotificacionCambioEstado($nombre, $datosCita, $tipo) {
+    $saludo = ($tipo === 'paciente') ? "Estimado/a {$nombre}" : "Dr. {$nombre}";
+    $mensaje_principal = ($tipo === 'paciente') ? 
+        "Le informamos que el estado de su cita médica ha cambiado" : 
+        "Le informamos sobre un cambio en el estado de la cita";
+    
+    $texto = "CAMBIO DE ESTADO - CITA MÉDICA\n";
+    $texto .= "Clínica SJ - Sistema de Citas\n\n";
+    $texto .= "{$saludo},\n\n";
+    $texto .= "{$mensaje_principal}:\n\n";
+    
+    $texto .= "NUEVO ESTADO: " . strtoupper($datosCita['estado_nuevo']) . "\n";
+    $texto .= "Estado anterior: " . ucfirst($datosCita['estado_anterior']) . "\n";
+    
+    if (!empty($datosCita['motivo_cambio'])) {
+        $texto .= "Motivo: {$datosCita['motivo_cambio']}\n";
+    }
+    
+    $texto .= "\nDETALLES DE LA CITA:\n";
+    $texto .= "Fecha: {$datosCita['fecha_cita']}\n";
+    $texto .= "Hora: {$datosCita['hora_cita']}\n";
+    
+    if ($tipo === 'paciente') {
+        $texto .= "Médico: {$datosCita['nombre_medico']}\n";
+    } else {
+        $texto .= "Paciente: {$datosCita['nombre_paciente']}\n";
+    }
+    
+    $texto .= "Especialidad: {$datosCita['especialidad']}\n";
+    $texto .= "Tipo: " . ucfirst($datosCita['tipo_cita']) . "\n";
+    
+    if ($datosCita['tipo_cita'] === 'virtual' && !empty($datosCita['enlace_virtual'])) {
+        $texto .= "\nINFORMACIÓN VIRTUAL:\n";
+        $texto .= "Enlace: {$datosCita['enlace_virtual']}\n";
+        $texto .= "ID: {$datosCita['zoom_meeting_id']}\n";
+        $texto .= "Contraseña: {$datosCita['zoom_password']}\n";
+    }
+    
+    $texto .= "\nSistema de Clínica SJ\n";
+    $texto .= "Soporte: " . EmailConfig::SUPPORT_EMAIL;
+    
+    return $texto;
+}
+
+/**
+ * Función auxiliar para oscurecer colores
+ */
+private function darkenColor($hex, $percent) {
+    // Colores predefinidos más oscuros para evitar cálculos
+    $darkColors = [
+        '#28a745' => '#1e7e34',  // Verde confirmada
+        '#dc3545' => '#bd2130',  // Rojo cancelada  
+        '#007bff' => '#0056b3',  // Azul completada
+        '#fd7e14' => '#dc6502',  // Naranja en_curso
+        '#6c757d' => '#495057'   // Gris no_asistio
+    ];
+    
+    return $darkColors[$hex] ?? $hex; // Si no encuentra el color, devuelve el original
+}
+
 }
 ?>
