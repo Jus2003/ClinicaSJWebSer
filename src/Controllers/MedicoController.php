@@ -6,7 +6,14 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
 class MedicoController {
+    private $medico;
     
+    // ✅ CONSTRUCTOR CORREGIDO
+    public function __construct() {
+        $this->medico = new Medico();
+    }
+    
+    // ✅ MÉTODO EXISTENTE - CREAR MÉDICO
     public function crearMedico(Request $request, Response $response) {
         try {
             $data = $request->getParsedBody();
@@ -28,8 +35,7 @@ class MedicoController {
                 $data['especialidades'] = [$data['especialidades']];
             }
             
-            $medicoModel = new Medico();
-            $resultado = $medicoModel->crearMedico($data);
+            $resultado = $this->medico->crearMedico($data);
             
             if ($resultado['success']) {
                 $result = [
@@ -63,32 +69,220 @@ class MedicoController {
         }
     }
 
+    // ✅ MÉTODO PARA LISTAR TODOS LOS MÉDICOS
+    public function listarTodos($request, $response) {
+        try {
+            $resultado = $this->medico->listarTodos();
+            
+            $result = [
+                'status' => 200,
+                'success' => true,
+                'message' => 'Médicos consultados exitosamente',
+                'data' => $resultado
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+            
+        } catch (\Exception $e) {
+            $result = [
+                'status' => 500,
+                'success' => false,
+                'message' => 'Error interno del servidor: ' . $e->getMessage(),
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+        }
+    }
+
+    // ✅ MÉTODO PARA LISTAR MÉDICOS POR ESPECIALIDAD
+    public function listarPorEspecialidad($request, $response, $args) {
+        try {
+            $id_especialidad = $args['id_especialidad'];
+            $resultado = $this->medico->listarPorEspecialidad($id_especialidad);
+            
+            $result = [
+                'status' => 200,
+                'success' => true,
+                'message' => 'Médicos por especialidad consultados exitosamente',
+                'data' => $resultado
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+            
+        } catch (\Exception $e) {
+            $result = [
+                'status' => 500,
+                'success' => false,
+                'message' => 'Error interno del servidor: ' . $e->getMessage(),
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+        }
+    }
+
+    // ✅ MÉTODO PRINCIPAL PARA ASIGNAR/EDITAR HORARIOS
     public function asignarHorarios($request, $response, $args)
     {
-        $id_medico = $args['id_medico'];
-        $data = $request->getParsedBody();
+        try {
+            $id_medico = $args['id_medico'];
+            $data = $request->getParsedBody();
 
-        // Validar formato JSON y estructura
-        if (!isset($data['horarios']) || !is_array($data['horarios'])) {
-            return $response->withStatus(400)->withJson(['error' => 'Formato de horarios inválido']);
-        }
-
-        foreach ($data['horarios'] as $horario) {
-            if (
-                !isset($horario['dia_semana']) ||
-                !isset($horario['hora_inicio']) ||
-                !isset($horario['hora_fin']) ||
-                !isset($horario['id_sucursal'])
-            ) {
-                return $response->withStatus(400)->withJson(['error' => 'Datos de horario incompletos']);
+            // ✅ Validaciones completas
+            if (!isset($data['horarios']) || !is_array($data['horarios'])) {
+                $result = [
+                    'status' => 400,
+                    'success' => false,
+                    'message' => 'El formato de horarios es inválido. Se requiere un array de horarios.',
+                    'data' => null
+                ];
+                $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+                return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
             }
-            // Validaciones adicionales de hora y día aquí...
+
+            // Verificar que el médico existe
+            if (!$this->medico->existeMedico($id_medico)) {
+                $result = [
+                    'status' => 404,
+                    'success' => false,
+                    'message' => 'El médico especificado no existe.',
+                    'data' => null
+                ];
+                $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+                return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
+            }
+
+            // ✅ Validar cada horario
+            foreach ($data['horarios'] as $index => $horario) {
+                $errores = [];
+
+                // Campos requeridos
+                if (!isset($horario['dia_semana']) || empty($horario['dia_semana'])) {
+                    $errores[] = "Horario #{$index}: día_semana es requerido";
+                }
+                if (!isset($horario['hora_inicio']) || empty($horario['hora_inicio'])) {
+                    $errores[] = "Horario #{$index}: hora_inicio es requerida";
+                }
+                if (!isset($horario['hora_fin']) || empty($horario['hora_fin'])) {
+                    $errores[] = "Horario #{$index}: hora_fin es requerida";
+                }
+                if (!isset($horario['id_sucursal']) || empty($horario['id_sucursal'])) {
+                    $errores[] = "Horario #{$index}: id_sucursal es requerido";
+                }
+
+                // Validar día de la semana (1-7)
+                if (isset($horario['dia_semana']) && ($horario['dia_semana'] < 1 || $horario['dia_semana'] > 7)) {
+                    $errores[] = "Horario #{$index}: día_semana debe estar entre 1 (Lunes) y 7 (Domingo)";
+                }
+
+                // Validar formato de horas
+                if (isset($horario['hora_inicio']) && !preg_match('/^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/', $horario['hora_inicio'])) {
+                    $errores[] = "Horario #{$index}: hora_inicio debe tener formato HH:MM o HH:MM:SS";
+                }
+                if (isset($horario['hora_fin']) && !preg_match('/^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/', $horario['hora_fin'])) {
+                    $errores[] = "Horario #{$index}: hora_fin debe tener formato HH:MM o HH:MM:SS";
+                }
+
+                // Validar que hora_inicio < hora_fin
+                if (isset($horario['hora_inicio']) && isset($horario['hora_fin'])) {
+                    if (strtotime($horario['hora_inicio']) >= strtotime($horario['hora_fin'])) {
+                        $errores[] = "Horario #{$index}: hora_inicio debe ser menor que hora_fin";
+                    }
+                }
+
+                // Si hay errores, retornar
+                if (!empty($errores)) {
+                    $result = [
+                        'status' => 400,
+                        'success' => false,
+                        'message' => 'Errores de validación en los horarios',
+                        'data' => ['errores' => $errores]
+                    ];
+                    $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+                    return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+                }
+            }
+
+            // ✅ Procesar los horarios
+            $resultado = $this->medico->asignarHorarios($id_medico, $data['horarios']);
+
+            if ($resultado['success']) {
+                $result = [
+                    'status' => 200,
+                    'success' => true,
+                    'message' => $resultado['message'],
+                    'data' => [
+                        'id_medico' => $id_medico,
+                        'horarios_asignados' => count($data['horarios'])
+                    ]
+                ];
+                $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+                return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+            } else {
+                $result = [
+                    'status' => 500,
+                    'success' => false,
+                    'message' => $resultado['message'],
+                    'data' => null
+                ];
+                $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+                return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+            }
+
+        } catch (\Exception $e) {
+            $result = [
+                'status' => 500,
+                'success' => false,
+                'message' => 'Error interno del servidor: ' . $e->getMessage(),
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
         }
+    }
 
-        // Guardar o actualizar los horarios en la base de datos
-        // ...implementación de guardado/actualización...
+    // ✅ MÉTODO PARA CONSULTAR HORARIOS
+    public function consultarHorarios($request, $response, $args)
+    {
+        try {
+            $id_medico = $args['id_medico'];
 
-        return $response->withJson(['success' => true, 'message' => 'Horarios asignados correctamente']);
+            // Verificar que el médico existe
+            if (!$this->medico->existeMedico($id_medico)) {
+                $result = [
+                    'status' => 404,
+                    'success' => false,
+                    'message' => 'El médico especificado no existe.',
+                    'data' => null
+                ];
+                $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+                return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
+            }
+
+            $horarios = $this->medico->obtenerHorarios($id_medico);
+
+            $result = [
+                'status' => 200,
+                'success' => true,
+                'message' => 'Horarios consultados exitosamente',
+                'data' => [
+                    'id_medico' => $id_medico,
+                    'horarios' => $horarios
+                ]
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+
+        } catch (\Exception $e) {
+            $result = [
+                'status' => 500,
+                'success' => false,
+                'message' => 'Error interno del servidor: ' . $e->getMessage(),
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+        }
     }
 }
-?>

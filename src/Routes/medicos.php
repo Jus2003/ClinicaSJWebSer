@@ -6,6 +6,8 @@ $app->group('/medicos', function ($group) {
     $group->get('/especialidad/{id_especialidad}', [MedicoController::class, 'listarPorEspecialidad']);
     $group->post('/crear', [MedicoController::class, 'crearMedico']);
 
-    // Nueva ruta para asignar/editar horarios
-    $group->post('/{id_medico}/horarios', [MedicoController::class, 'asignarHorarios']);
+    // ✅ RUTAS PARA HORARIOS
+    $group->post('/{id_medico}/horarios', [MedicoController::class, 'asignarHorarios']);      // Asignar/Editar horarios
+    $group->put('/{id_medico}/horarios', [MedicoController::class, 'asignarHorarios']);       // También con PUT
+    $group->get('/{id_medico}/horarios', [MedicoController::class, 'consultarHorarios']);     // Consultar horarios
 });

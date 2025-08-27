@@ -241,35 +241,173 @@ class Medico {
         return $password;
     }
 
+    public function existeMedico($id_medico) {
+        $sql = "SELECT COUNT(*) FROM usuarios WHERE id_usuario = ? AND tipo_usuario = 'medico' AND activo = 1";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$id_medico]);
+        return $stmt->fetchColumn() > 0;
+    }
+
+    public function listarTodos() {
+        try {
+            $sql = "
+                SELECT 
+                    u.id_usuario as id_medico,
+                    u.cedula,
+                    u.nombre,
+                    u.apellido,
+                    CONCAT(u.nombre, ' ', u.apellido) as nombre_completo,
+                    u.email,
+                    u.telefono,
+                    u.activo,
+                    s.nombre as sucursal,
+                    GROUP_CONCAT(e.nombre SEPARATOR ', ') as especialidades
+                FROM usuarios u
+                LEFT JOIN sucursales s ON u.id_sucursal = s.id_sucursal
+                LEFT JOIN medico_especialidades me ON u.id_usuario = me.id_medico
+                LEFT JOIN especialidades e ON me.id_especialidad = e.id_especialidad
+                WHERE u.tipo_usuario = 'medico' 
+                AND u.activo = 1
+                GROUP BY u.id_usuario
+                ORDER BY u.apellido, u.nombre
+            ";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+        } catch (\Exception $e) {
+            throw new \Exception('Error al listar médicos: ' . $e->getMessage());
+        }
+    }
+
+    // ✅ MÉTODO PARA LISTAR MÉDICOS POR ESPECIALIDAD
+    public function listarPorEspecialidad($id_especialidad) {
+        try {
+            $sql = "
+                SELECT 
+                    u.id_usuario as id_medico,
+                    u.cedula,
+                    u.nombre,
+                    u.apellido,
+                    CONCAT(u.nombre, ' ', u.apellido) as nombre_completo,
+                    u.email,
+                    u.telefono,
+                    u.activo,
+                    s.nombre as sucursal,
+                    e.nombre as especialidad
+                FROM usuarios u
+                INNER JOIN medico_especialidades me ON u.id_usuario = me.id_medico
+                INNER JOIN especialidades e ON me.id_especialidad = e.id_especialidad
+                LEFT JOIN sucursales s ON u.id_sucursal = s.id_sucursal
+                WHERE u.tipo_usuario = 'medico' 
+                AND u.activo = 1
+                AND me.id_especialidad = ?
+                AND me.activo = 1
+                ORDER BY u.apellido, u.nombre
+            ";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id_especialidad]);
+            
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+        } catch (\Exception $e) {
+            throw new \Exception('Error al listar médicos por especialidad: ' . $e->getMessage());
+        }
+    }
+
+
     public function asignarHorarios($id_medico, $horarios)
     {
         try {
-            // Elimina los horarios anteriores del médico
+            // Iniciar transacción
+            $this->db->beginTransaction();
+
+            // ✅ Eliminar horarios anteriores del médico
             $stmt = $this->db->prepare("DELETE FROM horarios_medicos WHERE id_medico = ?");
             $stmt->execute([$id_medico]);
 
-            // Inserta los nuevos horarios
-            $stmt = $this->db->prepare("INSERT INTO horarios_medicos (id_medico, id_sucursal, dia_semana, hora_inicio, hora_fin, activo) VALUES (?, ?, ?, ?, ?, 1)");
+            // ✅ Insertar los nuevos horarios
+            $stmt = $this->db->prepare("
+                INSERT INTO horarios_medicos (id_medico, id_sucursal, dia_semana, hora_inicio, hora_fin, activo) 
+                VALUES (?, ?, ?, ?, ?, 1)
+            ");
+
             foreach ($horarios as $horario) {
+                // Normalizar el formato de hora (agregar segundos si no los tiene)
+                $hora_inicio = strlen($horario['hora_inicio']) === 5 ? $horario['hora_inicio'] . ':00' : $horario['hora_inicio'];
+                $hora_fin = strlen($horario['hora_fin']) === 5 ? $horario['hora_fin'] . ':00' : $horario['hora_fin'];
+
                 $stmt->execute([
                     $id_medico,
                     $horario['id_sucursal'],
                     $horario['dia_semana'],
-                    $horario['hora_inicio'],
-                    $horario['hora_fin']
+                    $hora_inicio,
+                    $hora_fin
                 ]);
             }
 
+            // Confirmar transacción
+            $this->db->commit();
+
             return [
                 'success' => true,
-                'message' => 'Horarios asignados correctamente'
+                'message' => 'Horarios asignados correctamente al médico'
             ];
+
         } catch (\Exception $e) {
+            // Revertir transacción en caso de error
+            $this->db->rollback();
+            
             return [
                 'success' => false,
                 'message' => 'Error al asignar horarios: ' . $e->getMessage()
             ];
         }
     }
+
+    // ✅ MÉTODO PARA OBTENER HORARIOS DE UN MÉDICO
+    public function obtenerHorarios($id_medico)
+    {
+        try {
+            $sql = "
+                SELECT 
+                    h.id_horario,
+                    h.id_medico,
+                    h.id_sucursal,
+                    s.nombre AS nombre_sucursal,
+                    h.dia_semana,
+                    CASE h.dia_semana
+                        WHEN 1 THEN 'Lunes'
+                        WHEN 2 THEN 'Martes'
+                        WHEN 3 THEN 'Miércoles'
+                        WHEN 4 THEN 'Jueves'
+                        WHEN 5 THEN 'Viernes'
+                        WHEN 6 THEN 'Sábado'
+                        WHEN 7 THEN 'Domingo'
+                    END AS nombre_dia,
+                    h.hora_inicio,
+                    h.hora_fin,
+                    h.activo,
+                    h.fecha_creacion
+                FROM horarios_medicos h
+                INNER JOIN sucursales s ON h.id_sucursal = s.id_sucursal
+                WHERE h.id_medico = ? 
+                AND h.activo = 1
+                ORDER BY h.dia_semana, h.hora_inicio
+            ";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id_medico]);
+            
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (\Exception $e) {
+            throw new \Exception('Error al obtener horarios: ' . $e->getMessage());
+        }
+    }
+
 }
 ?>
