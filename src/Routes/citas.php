@@ -9,15 +9,24 @@ $app->group('/citas', function ($group) {
     $group->get('/fechas', [CitaController::class, 'consultarPorRangoFechas']);
     $group->post('/fechas', [CitaController::class, 'consultarPorRangoFechas']);
     $group->get('/paciente/{id_paciente}', [CitaController::class, 'consultarPorPaciente']);
-    $group->get('/todas', [CitaController::class, 'listarTodas']); // Método original
-    
-    // NUEVA RUTA MEJORADA para recepcionista
+    $group->get('/todas', [CitaController::class, 'listarTodas']);
     $group->get('/todas-completas', [CitaController::class, 'listarTodasCompletas']);
     
-    // RUTAS POST con JSON existentes
+    // ✅ NUEVAS RUTAS PARA EL FLUJO DE CITAS
+    $group->get('/especialidades-disponibles/{tipo_cita}', [CitaController::class, 'obtenerEspecialidadesDisponibles']);
+    $group->get('/medicos-por-especialidad/{id_especialidad}/{tipo_cita}', [CitaController::class, 'obtenerMedicosPorEspecialidad']);
+    $group->post('/horarios-disponibles', [CitaController::class, 'obtenerHorariosDisponibles']);
+    $group->post('/crear', [CitaController::class, 'crearCita']);
+    $group->post('/validar-disponibilidad', [CitaController::class, 'validarDisponibilidad']);
+    
+    // Rutas POST con JSON existentes
     $group->post('/buscar-por-filtros', [CitaController::class, 'buscarCitasPorEspecialidadMedicoJSON']);
     $group->post('/buscar-por-id', [CitaController::class, 'buscarCitaPorIdJSON']);
     $group->post('/buscar-por-medico', [CitaController::class, 'obtenerCitasPorMedicoJSON']);
     $group->post('/buscar-fechas-usuario', [CitaController::class, 'consultarCitasPorFechasYUsuario']);
+
+    $group->put('/cambiar-estado/{id_cita}', [CitaController::class, 'cambiarEstadoCita']);
+    $group->post('/cambiar-estado/{id_cita}', [CitaController::class, 'cambiarEstadoCita']); // También con POST
+    
 });
 ?>

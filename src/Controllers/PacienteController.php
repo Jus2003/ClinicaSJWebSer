@@ -9,7 +9,7 @@ class PacienteController {
     private $paciente;
 
     public function __construct() {
-        $this->paciente = new PacienteModel();
+        $this->paciente = new Paciente();
     }
     
     public function buscarPorCedula(Request $request, Response $response, $args) {
@@ -406,52 +406,94 @@ class PacienteController {
     try {
         $data = $request->getParsedBody();
 
-        // Validación básica de datos
         if (empty($data)) {
-            $result = [
+            $response->getBody()->write(json_encode([
                 'status' => 400,
                 'success' => false,
-                'message' => 'No se recibieron datos',
-                'data' => null
-            ];
-            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+                'message' => 'No se recibieron datos'
+            ]));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
         }
 
-        $resultado = $this->paciente->crearPaciente($data);
+        // Campos requeridos
+        $campos_requeridos = ['username', 'email', 'cedula', 'nombre', 'apellido'];
+        foreach ($campos_requeridos as $campo) {
+            if (empty($data[$campo])) {
+                $response->getBody()->write(json_encode([
+                    'status' => 400,
+                    'success' => false,
+                    'message' => "El campo {$campo} es requerido"
+                ]));
+                return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+            }
+        }
 
-        if ($resultado['success']) {
-            $result = [
+        // Generar contraseña simple
+        $password = 'temp' . rand(1000, 9999);
+        
+        // Crear conexión directa
+        $database = new \App\Config\Database();
+        $db = $database->getConnection();
+        
+        $sql = "INSERT INTO usuarios (username, email, password, cedula, nombre, apellido, id_rol, activo, requiere_cambio_contrasena, clave_temporal) VALUES (?, ?, ?, ?, ?, ?, 4, 1, 1, ?)";
+        $stmt = $db->prepare($sql);
+        $resultado = $stmt->execute([
+            $data['username'],
+            $data['email'],
+            base64_encode($password),
+            $data['cedula'],
+            $data['nombre'],
+            $data['apellido'],
+            $password
+        ]);
+
+        if ($resultado) {
+            $response->getBody()->write(json_encode([
                 'status' => 201,
                 'success' => true,
-                'message' => $resultado['message'],
-                'data' => $resultado['data']
-            ];
-            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+                'message' => 'Paciente creado exitosamente',
+                'data' => [
+                    'id_paciente' => $db->lastInsertId(),
+                    'nombre_completo' => $data['nombre'] . ' ' . $data['apellido'],
+                    'username' => $data['username'],
+                    'email' => $data['email'],
+                    'cedula' => $data['cedula'],
+                    'password_temporal' => $password,
+                    'rol' => 'Paciente'
+                ]
+            ]));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(201);
         } else {
-            $result = [
-                'status' => 400,
+            $response->getBody()->write(json_encode([
+                'status' => 500,
                 'success' => false,
-                'message' => $resultado['message'],
-                'data' => isset($resultado['errores']) ? ['errores' => $resultado['errores']] : null
-            ];
-            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+                'message' => 'Error al crear el paciente'
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
         }
 
     } catch (\Exception $e) {
-        $result = [
+        $response->getBody()->write(json_encode([
             'status' => 500,
             'success' => false,
-            'message' => 'Error interno del servidor: ' . $e->getMessage(),
-            'data' => null
-        ];
-        $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            'message' => 'Error: ' . $e->getMessage()
+        ]));
         return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
     }
 }
 
 
+
+private function generarPasswordSimple($longitud = 8) {
+    $caracteres = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    $password = '';
+    for ($i = 0; $i < $longitud; $i++) {
+        $password .= $caracteres[rand(0, strlen($caracteres) - 1)];
+    }
+    return $password;
 }
+
+
+}
+
 ?>

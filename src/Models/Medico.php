@@ -242,87 +242,82 @@ class Medico {
     }
 
     public function existeMedico($id_medico) {
-    $sql = "SELECT COUNT(*) 
-            FROM usuarios 
-            WHERE id_usuario = ? 
-              AND id_rol = 3 
-              AND activo = 1";
-    $stmt = $this->db->prepare($sql);
-    $stmt->execute([$id_medico]);
-    return $stmt->fetchColumn() > 0;
+        $sql = "SELECT COUNT(*) FROM usuarios WHERE id_usuario = ? AND id_rol = 3 AND activo = 1";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$id_medico]);
+        return $stmt->fetchColumn() > 0;
     }
 
 
     public function listarTodos() {
-        try {
-            $sql = "
-                SELECT 
-                    u.id_usuario as id_medico,
-                    u.cedula,
-                    u.nombre,
-                    u.apellido,
-                    CONCAT(u.nombre, ' ', u.apellido) as nombre_completo,
-                    u.email,
-                    u.telefono,
-                    u.activo,
-                    s.nombre as sucursal,
-                    GROUP_CONCAT(e.nombre SEPARATOR ', ') as especialidades
-                FROM usuarios u
-                LEFT JOIN sucursales s ON u.id_sucursal = s.id_sucursal
-                LEFT JOIN medico_especialidades me ON u.id_usuario = me.id_medico
-                LEFT JOIN especialidades e ON me.id_especialidad = e.id_especialidad
-                WHERE u.tipo_usuario = 'medico' 
-                AND u.activo = 1
-                GROUP BY u.id_usuario
-                ORDER BY u.apellido, u.nombre
-            ";
-            
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute();
-            
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-        } catch (\Exception $e) {
-            throw new \Exception('Error al listar médicos: ' . $e->getMessage());
-        }
+    try {
+        $sql = "
+            SELECT 
+                u.id_usuario as id_medico,
+                u.cedula,
+                u.nombre,
+                u.apellido,
+                CONCAT(u.nombre, ' ', u.apellido) as nombre_completo,
+                u.email,
+                u.telefono,
+                u.activo,
+                s.nombre as sucursal,
+                GROUP_CONCAT(e.nombre SEPARATOR ', ') as especialidades
+            FROM usuarios u
+            LEFT JOIN sucursales s ON u.id_sucursal = s.id_sucursal
+            LEFT JOIN medico_especialidades me ON u.id_usuario = me.id_medico
+            LEFT JOIN especialidades e ON me.id_especialidad = e.id_especialidad
+            WHERE u.id_rol = 3 
+            AND u.activo = 1
+            GROUP BY u.id_usuario
+            ORDER BY u.apellido, u.nombre
+        ";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+    } catch (\Exception $e) {
+        throw new \Exception('Error al listar médicos: ' . $e->getMessage());
     }
+}
 
     // ✅ MÉTODO PARA LISTAR MÉDICOS POR ESPECIALIDAD
-    public function listarPorEspecialidad($id_especialidad) {
-        try {
-            $sql = "
-                SELECT 
-                    u.id_usuario as id_medico,
-                    u.cedula,
-                    u.nombre,
-                    u.apellido,
-                    CONCAT(u.nombre, ' ', u.apellido) as nombre_completo,
-                    u.email,
-                    u.telefono,
-                    u.activo,
-                    s.nombre as sucursal,
-                    e.nombre as especialidad
-                FROM usuarios u
-                INNER JOIN medico_especialidades me ON u.id_usuario = me.id_medico
-                INNER JOIN especialidades e ON me.id_especialidad = e.id_especialidad
-                LEFT JOIN sucursales s ON u.id_sucursal = s.id_sucursal
-                WHERE u.tipo_usuario = 'medico' 
-                AND u.activo = 1
-                AND me.id_especialidad = ?
-                AND me.activo = 1
-                ORDER BY u.apellido, u.nombre
-            ";
-            
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$id_especialidad]);
-            
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-        } catch (\Exception $e) {
-            throw new \Exception('Error al listar médicos por especialidad: ' . $e->getMessage());
-        }
+   public function listarPorEspecialidad($id_especialidad) {
+    try {
+        $sql = "
+            SELECT 
+                u.id_usuario as id_medico,
+                u.cedula,
+                u.nombre,
+                u.apellido,
+                CONCAT(u.nombre, ' ', u.apellido) as nombre_completo,
+                u.email,
+                u.telefono,
+                u.activo,
+                s.nombre as sucursal,
+                e.nombre as especialidad
+            FROM usuarios u
+            INNER JOIN medico_especialidades me ON u.id_usuario = me.id_medico
+            INNER JOIN especialidades e ON me.id_especialidad = e.id_especialidad
+            LEFT JOIN sucursales s ON u.id_sucursal = s.id_sucursal
+            WHERE u.id_rol = 3 
+            AND u.activo = 1
+            AND me.id_especialidad = ?
+            AND me.activo = 1
+            ORDER BY u.apellido, u.nombre
+        ";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$id_especialidad]);
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+    } catch (\Exception $e) {
+        throw new \Exception('Error al listar médicos por especialidad: ' . $e->getMessage());
     }
-
+}
 
     public function asignarHorarios($id_medico, $horarios)
     {

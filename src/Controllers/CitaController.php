@@ -791,5 +791,397 @@ class CitaController {
             return $response->withJson($result, 500);
         }
     }
+
+    // ✅ AGREGAR ESTOS MÉTODOS AL CitaController.php
+
+/**
+ * Obtener especialidades disponibles según tipo de cita
+ * GET /citas/especialidades-disponibles/{tipo_cita}
+ */
+public function obtenerEspecialidadesDisponibles($request, $response, $args) {
+    try {
+        $tipoCita = $args['tipo_cita'] ?? '';
+        
+        if (!in_array($tipoCita, ['presencial', 'virtual'])) {
+            $result = [
+                'status' => 400,
+                'success' => false,
+                'message' => 'Tipo de cita debe ser: presencial o virtual',
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        
+        $citaModel = new \App\Models\Cita();
+        $especialidades = $citaModel->obtenerEspecialidadesDisponibles($tipoCita);
+        
+        $result = [
+            'status' => 200,
+            'success' => true,
+            'message' => "Especialidades disponibles para citas {$tipoCita}",
+            'data' => [
+                'tipo_cita' => $tipoCita,
+                'especialidades' => $especialidades
+            ]
+        ];
+        $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+        
+    } catch (\Exception $e) {
+        $result = [
+            'status' => 500,
+            'success' => false,
+            'message' => 'Error interno: ' . $e->getMessage(),
+            'data' => null
+        ];
+        $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+    }
+}
+
+/**
+ * Obtener médicos por especialidad y tipo de cita
+ * GET /citas/medicos-por-especialidad/{id_especialidad}/{tipo_cita}
+ */
+public function obtenerMedicosPorEspecialidad($request, $response, $args) {
+    try {
+        $idEspecialidad = $args['id_especialidad'] ?? '';
+        $tipoCita = $args['tipo_cita'] ?? '';
+        
+        if (!is_numeric($idEspecialidad) || $idEspecialidad <= 0) {
+            $result = [
+                'status' => 400,
+                'success' => false,
+                'message' => 'ID de especialidad inválido',
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        
+        if (!in_array($tipoCita, ['presencial', 'virtual'])) {
+            $result = [
+                'status' => 400,
+                'success' => false,
+                'message' => 'Tipo de cita debe ser: presencial o virtual',
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        
+        $citaModel = new \App\Models\Cita();
+        $medicos = $citaModel->obtenerMedicosPorEspecialidad($idEspecialidad, $tipoCita);
+        
+        $result = [
+            'status' => 200,
+            'success' => true,
+            'message' => 'Médicos disponibles obtenidos exitosamente',
+            'data' => [
+                'id_especialidad' => $idEspecialidad,
+                'tipo_cita' => $tipoCita,
+                'medicos' => $medicos
+            ]
+        ];
+        $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+        
+    } catch (\Exception $e) {
+        $result = [
+            'status' => 500,
+            'success' => false,
+            'message' => 'Error interno: ' . $e->getMessage(),
+            'data' => null
+        ];
+        $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+    }
+}
+
+/**
+ * Obtener horarios disponibles de un médico en una fecha
+ * POST /citas/horarios-disponibles
+ */
+public function obtenerHorariosDisponibles($request, $response) {
+    try {
+        $data = $request->getParsedBody();
+        
+        // Validaciones
+        if (empty($data['id_medico']) || !is_numeric($data['id_medico'])) {
+            $result = [
+                'status' => 400,
+                'success' => false,
+                'message' => 'ID de médico es requerido y debe ser numérico',
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        
+        if (empty($data['fecha'])) {
+            $result = [
+                'status' => 400,
+                'success' => false,
+                'message' => 'La fecha es requerida (formato: YYYY-MM-DD)',
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        
+        $duracion = $data['duracion_minutos'] ?? 45; // Por defecto 45 minutos
+        
+        $citaModel = new \App\Models\Cita();
+        $horarios = $citaModel->obtenerHorariosDisponibles($data['id_medico'], $data['fecha'], $duracion);
+        
+        $result = [
+            'status' => 200,
+            'success' => true,
+            'message' => 'Horarios disponibles obtenidos exitosamente',
+            'data' => [
+                'id_medico' => $data['id_medico'],
+                'fecha' => $data['fecha'],
+                'duracion_minutos' => $duracion,
+                'horarios_disponibles' => $horarios
+            ]
+        ];
+        $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+        
+    } catch (\Exception $e) {
+        $result = [
+            'status' => 500,
+            'success' => false,
+            'message' => 'Error interno: ' . $e->getMessage(),
+            'data' => null
+        ];
+        $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+    }
+}
+
+/**
+ * Validar disponibilidad antes de crear la cita
+ * POST /citas/validar-disponibilidad
+ */
+public function validarDisponibilidad($request, $response) {
+    try {
+        $data = $request->getParsedBody();
+        
+        // Validaciones básicas
+        $camposRequeridos = ['id_medico', 'fecha_cita', 'hora_cita'];
+        foreach ($camposRequeridos as $campo) {
+            if (empty($data[$campo])) {
+                $result = [
+                    'status' => 400,
+                    'success' => false,
+                    'message' => "El campo {$campo} es requerido",
+                    'data' => null
+                ];
+                $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+                return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+            }
+        }
+        
+        $citaModel = new \App\Models\Cita();
+        $disponible = $citaModel->validarDisponibilidad($data['id_medico'], $data['fecha_cita'], $data['hora_cita']);
+        
+        if ($disponible['disponible']) {
+            $result = [
+                'status' => 200,
+                'success' => true,
+                'message' => 'Horario disponible para la cita',
+                'data' => [
+                    'disponible' => true,
+                    'fecha_cita' => $data['fecha_cita'],
+                    'hora_cita' => $data['hora_cita'],
+                    'id_medico' => $data['id_medico']
+                ]
+            ];
+        } else {
+            $result = [
+                'status' => 409,
+                'success' => false,
+                'message' => $disponible['mensaje'],
+                'data' => [
+                    'disponible' => false,
+                    'razon' => $disponible['razon']
+                ]
+            ];
+        }
+        
+        $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($result['status']);
+        
+    } catch (\Exception $e) {
+        $result = [
+            'status' => 500,
+            'success' => false,
+            'message' => 'Error interno: ' . $e->getMessage(),
+            'data' => null
+        ];
+        $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+    }
+}
+
+/**
+ * Crear nueva cita médica
+ * POST /citas/crear
+ */
+public function crearCita($request, $response) {
+    try {
+        $data = $request->getParsedBody();
+        
+        // Validaciones de campos requeridos
+        $camposRequeridos = [
+            'cedula_paciente', 'id_medico', 'id_especialidad', 
+            'fecha_cita', 'hora_cita', 'tipo_cita', 'motivo_consulta'
+        ];
+        
+        foreach ($camposRequeridos as $campo) {
+            if (empty($data[$campo])) {
+                $result = [
+                    'status' => 400,
+                    'success' => false,
+                    'message' => "El campo {$campo} es requerido",
+                    'data' => null
+                ];
+                $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+                return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+            }
+        }
+        
+        // Validar tipo de cita
+        if (!in_array($data['tipo_cita'], ['presencial', 'virtual'])) {
+            $result = [
+                'status' => 400,
+                'success' => false,
+                'message' => 'Tipo de cita debe ser: presencial o virtual',
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        
+        $citaModel = new \App\Models\Cita();
+        $resultado = $citaModel->crearCita($data);
+        
+        if ($resultado['success']) {
+            $result = [
+                'status' => 201,
+                'success' => true,
+                'message' => $resultado['message'],
+                'data' => $resultado['data']
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(201);
+        } else {
+            $result = [
+                'status' => 400,
+                'success' => false,
+                'message' => $resultado['message'],
+                'data' => isset($resultado['errores']) ? ['errores' => $resultado['errores']] : null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        
+    } catch (\Exception $e) {
+        $result = [
+            'status' => 500,
+            'success' => false,
+            'message' => 'Error interno del servidor: ' . $e->getMessage(),
+            'data' => null
+        ];
+        $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+    }
+
+    
+}
+
+/**
+ * Cambiar estado de una cita
+ * PUT/POST /citas/cambiar-estado/{id_cita}
+ */
+public function cambiarEstadoCita($request, $response, $args) {
+    try {
+        $idCita = $args['id_cita'];
+        $data = $request->getParsedBody();
+        
+        // Validar ID de cita
+        if (!is_numeric($idCita) || $idCita <= 0) {
+            $result = [
+                'status' => 400,
+                'success' => false,
+                'message' => 'ID de cita inválido',
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        
+        // Validar nuevo estado
+        if (empty($data['nuevo_estado'])) {
+            $result = [
+                'status' => 400,
+                'success' => false,
+                'message' => 'El nuevo estado es requerido',
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        
+        // Estados válidos según la base de datos
+        $estadosValidos = ['agendada', 'confirmada', 'en_curso', 'completada', 'cancelada', 'no_asistio'];
+        if (!in_array($data['nuevo_estado'], $estadosValidos)) {
+            $result = [
+                'status' => 400,
+                'success' => false,
+                'message' => 'Estado inválido. Estados permitidos: ' . implode(', ', $estadosValidos),
+                'data' => ['estados_validos' => $estadosValidos]
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        
+        $citaModel = new \App\Models\Cita();
+        $resultado = $citaModel->cambiarEstadoCita($idCita, $data['nuevo_estado'], $data['motivo_cambio'] ?? null);
+        
+        if ($resultado['success']) {
+            $result = [
+                'status' => 200,
+                'success' => true,
+                'message' => $resultado['message'],
+                'data' => $resultado['data']
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+        } else {
+            $result = [
+                'status' => 400,
+                'success' => false,
+                'message' => $resultado['message'],
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        
+    } catch (\Exception $e) {
+        $result = [
+            'status' => 500,
+            'success' => false,
+            'message' => 'Error interno del servidor: ' . $e->getMessage(),
+            'data' => null
+        ];
+        $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+    }
+}
+
 }
 ?>
