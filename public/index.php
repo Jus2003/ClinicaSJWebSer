@@ -246,6 +246,8 @@ require __DIR__ . '/../src/Routes/especialidades.php';
 // Incluir rutas de médicos
 require __DIR__ . '/../src/Routes/medicos.php';
 
+require __DIR__ . '/../src/Routes/triaje.php';
+
 // ============================================
 // EJECUTAR LA APLICACIÓN
 // ============================================

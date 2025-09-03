@@ -448,29 +448,38 @@ class PacienteController {
         ]);
 
         if ($resultado) {
-            $response->getBody()->write(json_encode([
-                'status' => 201,
-                'success' => true,
-                'message' => 'Paciente creado exitosamente',
-                'data' => [
-                    'id_paciente' => $db->lastInsertId(),
-                    'nombre_completo' => $data['nombre'] . ' ' . $data['apellido'],
-                    'username' => $data['username'],
-                    'email' => $data['email'],
-                    'cedula' => $data['cedula'],
-                    'password_temporal' => $password,
-                    'rol' => 'Paciente'
-                ]
-            ]));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(201);
-        } else {
-            $response->getBody()->write(json_encode([
-                'status' => 500,
-                'success' => false,
-                'message' => 'Error al crear el paciente'
-            ]));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
-        }
+    $emailService = new \App\Services\EmailService();
+    $emailEnviado = false;
+
+    try {
+        $resEmail = $emailService->enviarPasswordTemporal(
+            $data['email'],
+            $data['nombre'] . ' ' . $data['apellido'],
+            $data['username'],
+            $password
+        );
+        $emailEnviado = $resEmail['success'];
+    } catch (\Exception $e) {
+        error_log("Error enviando email a {$data['email']}: " . $e->getMessage());
+    }
+
+    $response->getBody()->write(json_encode([
+        'status' => 201,
+        'success' => true,
+        'message' => 'Paciente creado exitosamente',
+        'data' => [
+            'id_paciente' => $db->lastInsertId(),
+            'nombre_completo' => $data['nombre'] . ' ' . $data['apellido'],
+            'username' => $data['username'],
+            'email' => $data['email'],
+            'cedula' => $data['cedula'],
+            'password_temporal' => $password,
+            'email_enviado' => $emailEnviado,
+            'rol' => 'Paciente'
+        ]
+    ]));
+    return $response->withHeader('Content-Type', 'application/json')->withStatus(201);
+}
 
     } catch (\Exception $e) {
         $response->getBody()->write(json_encode([

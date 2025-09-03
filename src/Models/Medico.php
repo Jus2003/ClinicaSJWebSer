@@ -261,8 +261,8 @@ class Medico {
                 u.email,
                 u.telefono,
                 u.activo,
-                s.nombre as sucursal,
-                GROUP_CONCAT(e.nombre SEPARATOR ', ') as especialidades
+                s.nombre_sucursal as sucursal,
+                GROUP_CONCAT(e.nombre_especialidad SEPARATOR ', ') as especialidades
             FROM usuarios u
             LEFT JOIN sucursales s ON u.id_sucursal = s.id_sucursal
             LEFT JOIN medico_especialidades me ON u.id_usuario = me.id_medico
@@ -272,6 +272,8 @@ class Medico {
             GROUP BY u.id_usuario
             ORDER BY u.apellido, u.nombre
         ";
+
+
         
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
