@@ -68,16 +68,18 @@ class TriajeController {
             $tipo_triaje = $datos['tipo_triaje'] ?? 'digital';
             $id_usuario_registro = $datos['id_usuario_registro'] ?? 1; // Usuario por defecto
             
-            // Verificar que la cita existe
-            $citaInfo = $this->cita->obtenerCitaPorId($id_cita);
-            if (!$citaInfo) {
+            // Verificar que la cita existe usando el método correcto
+            $resultadoCita = $this->cita->consultarPorId($id_cita);
+            if (!$resultadoCita['success']) {
                 $data = [
                     'success' => false, 
-                    'message' => 'Cita no encontrada'
+                    'message' => 'Cita no encontrada: ' . $resultadoCita['message']
                 ];
                 $response->getBody()->write(json_encode($data, JSON_UNESCAPED_UNICODE));
                 return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
             }
+            
+            $citaInfo = $resultadoCita['data']; // Extraer los datos de la cita
             
             // Validar estructura de respuestas
             if (!is_array($respuestas) || empty($respuestas)) {
@@ -108,7 +110,13 @@ class TriajeController {
                     'id_cita' => $id_cita,
                     'triaje_completo' => $triageCompleto,
                     'respuestas_guardadas' => count($respuestas),
-                    'estadisticas' => $estadisticas
+                    'estadisticas' => $estadisticas,
+                    'info_cita' => [
+                        'fecha_cita' => $citaInfo['fecha_cita'],
+                        'hora_cita' => $citaInfo['hora_cita'],
+                        'estado_cita' => $citaInfo['estado_cita'],
+                        'paciente' => $citaInfo['nombre_paciente']
+                    ]
                 ]
             ];
             
@@ -131,16 +139,18 @@ class TriajeController {
         try {
             $id_cita = $args['id_cita'];
             
-            // Verificar que la cita existe
-            $citaInfo = $this->cita->obtenerCitaPorId($id_cita);
-            if (!$citaInfo) {
+            // Verificar que la cita existe usando el método correcto
+            $resultadoCita = $this->cita->consultarPorId($id_cita);
+            if (!$resultadoCita['success']) {
                 $data = [
                     'success' => false, 
-                    'message' => 'Cita no encontrada'
+                    'message' => 'Cita no encontrada: ' . $resultadoCita['message']
                 ];
                 $response->getBody()->write(json_encode($data, JSON_UNESCAPED_UNICODE));
                 return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
             }
+            
+            $citaInfo = $resultadoCita['data']; // Extraer los datos de la cita
             
             // Obtener respuestas del triaje
             $respuestas = $this->triaje->obtenerRespuestasTriajePorCita($id_cita);
@@ -163,7 +173,14 @@ class TriajeController {
                         'id_cita' => $id_cita,
                         'triaje_realizado' => false,
                         'estado_cita' => $citaInfo['estado_cita'],
-                        'puede_realizar_triaje' => true // Siempre puede realizar triaje
+                        'puede_realizar_triaje' => true, // Siempre puede realizar triaje
+                        'info_cita' => [
+                            'fecha_cita' => $citaInfo['fecha_cita'],
+                            'hora_cita' => $citaInfo['hora_cita'],
+                            'paciente' => $citaInfo['nombre_paciente'],
+                            'medico' => $citaInfo['nombre_medico'],
+                            'especialidad' => $citaInfo['nombre_especialidad']
+                        ]
                     ]
                 ];
                 $response->getBody()->write(json_encode($data, JSON_UNESCAPED_UNICODE));
@@ -182,7 +199,10 @@ class TriajeController {
                     'info_cita' => [
                         'fecha_cita' => $citaInfo['fecha_cita'],
                         'hora_cita' => $citaInfo['hora_cita'],
-                        'estado_cita' => $citaInfo['estado_cita']
+                        'estado_cita' => $citaInfo['estado_cita'],
+                        'paciente' => $citaInfo['nombre_paciente'],
+                        'medico' => $citaInfo['nombre_medico'],
+                        'especialidad' => $citaInfo['nombre_especialidad']
                     ]
                 ]
             ];
@@ -206,29 +226,39 @@ class TriajeController {
         try {
             $id_cita = $args['id_cita'];
             
-            // Verificar que la cita existe
-            $citaInfo = $this->cita->obtenerCitaPorId($id_cita);
-            if (!$citaInfo) {
+            // Verificar que la cita existe usando el método correcto
+            $resultadoCita = $this->cita->consultarPorId($id_cita);
+            if (!$resultadoCita['success']) {
                 $data = [
                     'success' => false, 
-                    'message' => 'Cita no encontrada'
+                    'message' => 'Cita no encontrada: ' . $resultadoCita['message']
                 ];
                 $response->getBody()->write(json_encode($data, JSON_UNESCAPED_UNICODE));
                 return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
             }
+            
+            $citaInfo = $resultadoCita['data']; // Extraer los datos de la cita
             
             $triageCompleto = $this->triaje->tieneTriajeCompleto($id_cita);
             $estadisticas = $this->triaje->obtenerEstadisticasTriaje($id_cita);
             
             $data = [
                 'success' => true,
+                'message' => 'Estado del triaje verificado',
                 'data' => [
                     'id_cita' => $id_cita,
                     'estado_cita' => $citaInfo['estado_cita'],
                     'triaje_realizado' => !empty($estadisticas),
                     'triaje_completo' => $triageCompleto,
                     'puede_realizar_triaje' => true, // Siempre puede realizar triaje
-                    'estadisticas' => $estadisticas ?: null
+                    'estadisticas' => $estadisticas ?: null,
+                    'info_cita' => [
+                        'fecha_cita' => $citaInfo['fecha_cita'],
+                        'hora_cita' => $citaInfo['hora_cita'],
+                        'paciente' => $citaInfo['nombre_paciente'],
+                        'medico' => $citaInfo['nombre_medico'],
+                        'especialidad' => $citaInfo['nombre_especialidad']
+                    ]
                 ]
             ];
             

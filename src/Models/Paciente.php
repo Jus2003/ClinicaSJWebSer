@@ -434,6 +434,15 @@ class Paciente {
         ];
     }
 }
+
+public function obtenerPorPaciente($idPaciente) {
+    $sql = "SELECT * FROM citas WHERE id_paciente = :id_paciente";
+    $stmt = $this->db->prepare($sql);
+    $stmt->bindParam(':id_paciente', $idPaciente);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 // ✅ VERSIÓN SIMPLIFICADA SIN DateTime
 private function validarDatosPaciente($datos) {
     $errores = [];

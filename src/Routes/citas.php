@@ -27,6 +27,8 @@ $app->group('/citas', function ($group) {
 
     $group->put('/cambiar-estado/{id_cita}', [CitaController::class, 'cambiarEstadoCita']);
     $group->post('/cambiar-estado/{id_cita}', [CitaController::class, 'cambiarEstadoCita']); // También con POST
+    $group->post('/buscar-por-paciente', [CitaController::class, 'obtenerCitasPorPacienteJSON']);
+
     
 });
 ?>

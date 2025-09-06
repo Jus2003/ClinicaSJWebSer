@@ -492,13 +492,6 @@ class CitaController {
     public function consultarPorPaciente($request, $response, $args) {
         $idPaciente = $args['id_paciente'];
         
-        // Solo verificar que hay sesión activa
-        if (!isset($_SESSION['user_id'])) {
-            return $response->withJson([
-                'success' => false,
-                'message' => 'No hay sesión activa'
-            ], 401);
-        }
         
         // Sin restricciones de permisos - cualquier usuario logueado puede consultar
         $citaModel = new Cita();
@@ -1182,6 +1175,83 @@ public function cambiarEstadoCita($request, $response, $args) {
         return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
     }
 }
+
+public function obtenerCitasPorPacienteJSON($request, $response) {
+    try {
+        $data = $request->getParsedBody();
+        
+        // Validar que se proporcione el ID del paciente
+        if (empty($data['id_paciente'])) {
+            $result = [
+                'status' => 400,
+                'success' => false,
+                'message' => 'El ID del paciente es requerido',
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        
+        $idPaciente = $data['id_paciente'];
+        
+        // Validar que sea un número válido
+        if (!is_numeric($idPaciente) || $idPaciente <= 0) {
+            $result = [
+                'status' => 400,
+                'success' => false,
+                'message' => 'ID de paciente inválido',
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        
+        // Crear la conexión aquí mismo
+        $dbObj = new \App\Config\Database();
+        $db = $dbObj->getConnection();
+        
+        // Obtener las citas del paciente
+        $citaModel = new \App\Models\Cita($db);
+        $resultado = $citaModel->consultarPorPaciente($idPaciente);
+        
+        if ($resultado['success']) {
+            $result = [
+                'status' => 200,
+                'success' => true,
+                'message' => 'Citas del paciente obtenidas correctamente',
+                'data' => [
+                    'id_paciente_consultado' => $idPaciente,
+                    'timestamp' => date('Y-m-d H:i:s'),
+                    'citas' => $resultado['data']['citas'],
+                    'estadisticas' => $resultado['data']['estadisticas']
+                ]
+            ];
+            $response->getBody()->write(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+        } else {
+            $result = [
+                'status' => 404,
+                'success' => false,
+                'message' => $resultado['message'],
+                'data' => null
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
+        }
+        
+    } catch (\Exception $e) {
+        $result = [
+            'status' => 500,
+            'success' => false,
+            'message' => 'Error interno: ' . $e->getMessage(),
+            'data' => null
+        ];
+        $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+    }
+}
+
+
 
 }
 ?>

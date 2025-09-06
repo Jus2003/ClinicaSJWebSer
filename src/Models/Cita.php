@@ -233,9 +233,13 @@ class Cita {
     }
 
     public function consultarPorPaciente($idPaciente) {
+    try {
         $sql = "SELECT c.id_cita, c.fecha_cita, c.hora_cita, c.tipo_cita, c.estado_cita, 
-                    c.motivo_consulta, c.observaciones,
+                    c.motivo_consulta, c.observaciones, c.fecha_registro,
                     CONCAT(m.nombre, ' ', m.apellido) as nombre_medico,
+                    m.cedula as cedula_medico,
+                    m.telefono as telefono_medico,
+                    m.email as email_medico,
                     e.nombre_especialidad,
                     s.nombre_sucursal
                 FROM citas c
@@ -245,29 +249,48 @@ class Cita {
                 WHERE c.id_paciente = ?
                 ORDER BY c.fecha_cita DESC, c.hora_cita DESC";
         
-        try {
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$idPaciente]);
-            $citas = $stmt->fetchAll();
-            
-            $estadisticas = $this->calcularEstadisticasCitas($citas);
-            
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$idPaciente]);
+        $citas = $stmt->fetchAll();
+        
+        if (empty($citas)) {
             return [
                 'success' => true,
-                'message' => 'Citas del paciente obtenidas correctamente',
+                'message' => 'El paciente no tiene citas registradas',
                 'data' => [
-                    'citas' => $citas,
-                    'estadisticas' => $estadisticas
+                    'citas' => [],
+                    'estadisticas' => [
+                        'total_citas' => 0,
+                        'por_estado' => [],
+                        'por_tipo' => [],
+                        'por_especialidad' => []
+                    ]
                 ]
             ];
-            
-        } catch (\Exception $e) {
-            return [
-                'success' => false,
-                'message' => 'Error consultando citas del paciente: ' . $e->getMessage()
-            ];
         }
+        
+        // Calcular estadísticas
+        $estadisticas = $this->calcularEstadisticasCitas($citas);
+        
+        return [
+            'success' => true,
+            'message' => 'Citas del paciente obtenidas correctamente',
+            'data' => [
+                'citas' => $citas,
+                'estadisticas' => $estadisticas,
+                'total_encontradas' => count($citas)
+            ]
+        ];
+        
+    } catch (\Exception $e) {
+        return [
+            'success' => false,
+            'message' => 'Error consultando citas del paciente: ' . $e->getMessage(),
+            'data' => null
+        ];
     }
+}
+
 
     public function listarTodas() {
         $sql = "SELECT c.id_cita, c.fecha_cita, c.hora_cita, c.tipo_cita, c.estado_cita, 
