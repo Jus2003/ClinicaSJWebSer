@@ -1273,7 +1273,7 @@ public function crearCita($datos) {
 /**
  * Cambiar estado de una cita y enviar notificaciones
  */
-public function cambiarEstadoCita($idCita, $nuevoEstado, $motivoCambio = null) {
+public function cambiarEstadoCita($idCita, $nuevoEstado, $motivoCambio = null, $observaciones = null) {
     try {
         $this->db->beginTransaction();
         
@@ -1281,7 +1281,8 @@ public function cambiarEstadoCita($idCita, $nuevoEstado, $motivoCambio = null) {
         $sqlCita = "
             SELECT 
                 c.id_cita, c.estado_cita as estado_actual, c.fecha_cita, c.hora_cita, 
-                c.tipo_cita, c.motivo_consulta, c.enlace_virtual, c.zoom_meeting_id, c.zoom_password,
+                c.tipo_cita, c.motivo_consulta, c.observaciones as observaciones_actuales,
+                c.enlace_virtual, c.zoom_meeting_id, c.zoom_password,
                 p.id_usuario as id_paciente, p.nombre as nombre_paciente, p.apellido as apellido_paciente, p.email as email_paciente,
                 m.id_usuario as id_medico, m.nombre as nombre_medico, m.apellido as apellido_medico, m.email as email_medico,
                 e.nombre_especialidad as especialidad,
@@ -1315,9 +1316,15 @@ public function cambiarEstadoCita($idCita, $nuevoEstado, $motivoCambio = null) {
             ];
         }
         
-        // 2. Actualizar estado de la cita
+        // 2. Actualizar estado de la cita y observaciones DIRECTAMENTE en la tabla citas
         $camposActualizar = ['estado_cita = ?'];
         $valoresActualizar = [$nuevoEstado];
+        
+        // ✅ NUEVA FUNCIONALIDAD: Actualizar observaciones si se proporcionan
+        if ($observaciones !== null) {
+            $camposActualizar[] = 'observaciones = ?';
+            $valoresActualizar[] = $observaciones;
+        }
         
         // Agregar campos específicos según el nuevo estado
         if ($nuevoEstado === 'confirmada') {
@@ -1334,19 +1341,50 @@ public function cambiarEstadoCita($idCita, $nuevoEstado, $motivoCambio = null) {
         $valoresActualizar[] = $idCita;
         
         $stmt = $this->db->prepare($sqlUpdate);
-        $resultado = $stmt->execute($valoresActualizar);
+        $stmt->execute($valoresActualizar);
         
-        if (!$resultado) {
-            $this->db->rollback();
-            return [
-                'success' => false,
-                'message' => 'Error al actualizar el estado de la cita'
-            ];
+        // 3. Crear notificaciones según el nuevo estado
+        $notificacionesCreadas = [];
+        
+        if ($nuevoEstado === 'confirmada') {
+            $titulo = "✅ Cita Confirmada";
+            $mensaje = "Su cita del {$cita['fecha_cita']} a las {$cita['hora_cita']} ha sido confirmada.";
+        } elseif ($nuevoEstado === 'cancelada') {
+            $titulo = "❌ Cita Cancelada";
+            $mensaje = "Su cita del {$cita['fecha_cita']} a las {$cita['hora_cita']} ha sido cancelada.";
+            if ($motivoCambio) {
+                $mensaje .= " Motivo: {$motivoCambio}";
+            }
+        } elseif ($nuevoEstado === 'completada') {
+            $titulo = "✅ Cita Completada";
+            $mensaje = "Su cita del {$cita['fecha_cita']} a las {$cita['hora_cita']} ha sido completada exitosamente.";
+            if ($observaciones) {
+                $mensaje .= " Observaciones del médico han sido registradas.";
+            }
+        }
+        
+        if (isset($titulo)) {
+            // Notificación para el paciente
+            $sqlNotif = "
+                INSERT INTO notificaciones (id_usuario_destinatario, tipo_notificacion, titulo, mensaje, id_referencia) 
+                VALUES (?, ?, ?, ?, ?)
+            ";
+            $stmt = $this->db->prepare($sqlNotif);
+            $stmt->execute([$cita['id_paciente'], 'cita_' . str_replace('ada', '', $nuevoEstado), $titulo, $mensaje, $idCita]);
+            $notificacionesCreadas[] = 'paciente';
+            
+            // Notificación para el médico si es cancelación
+            if ($nuevoEstado === 'cancelada') {
+                $tituloMedico = "📋 Cita Cancelada - Paciente: {$cita['nombre_paciente']}";
+                $mensajeMedico = "La cita del {$cita['fecha_cita']} a las {$cita['hora_cita']} con {$cita['nombre_paciente']} ha sido cancelada.";
+                $stmt->execute([$cita['id_medico'], 'cita_cancelada', $tituloMedico, $mensajeMedico, $idCita]);
+                $notificacionesCreadas[] = 'medico';
+            }
         }
         
         $this->db->commit();
         
-        // 3. Preparar datos para emails
+        // 4. ✅ RESTAURAR FUNCIONALIDAD DE EMAILS - Preparar datos para emails
         $datosCita = [
             'id_cita' => $cita['id_cita'],
             'estado_anterior' => $cita['estado_actual'],
@@ -1361,12 +1399,13 @@ public function cambiarEstadoCita($idCita, $nuevoEstado, $motivoCambio = null) {
             'tipo_cita' => $cita['tipo_cita'],
             'motivo_consulta' => $cita['motivo_consulta'],
             'motivo_cambio' => $motivoCambio,
+            'observaciones' => $observaciones,
             'enlace_virtual' => $cita['enlace_virtual'],
             'zoom_meeting_id' => $cita['zoom_meeting_id'],
             'zoom_password' => $cita['zoom_password']
         ];
         
-        // 4. Enviar notificaciones por email
+        // 5. ✅ RESTAURAR FUNCIONALIDAD DE EMAILS - Enviar notificaciones por email
         $emailsEnviados = ['paciente' => false, 'medico' => false];
         
         try {
@@ -1394,58 +1433,30 @@ public function cambiarEstadoCita($idCita, $nuevoEstado, $motivoCambio = null) {
             error_log("Error enviando emails de cambio de estado: " . $e->getMessage());
         }
         
-        // 5. Preparar mensaje de estado
-        $mensajesEstado = [
-            'agendada' => 'La cita ha sido agendada',
-            'confirmada' => 'La cita ha sido confirmada',
-            'en_curso' => 'La cita está en curso',
-            'completada' => 'La cita ha sido completada',
-            'cancelada' => 'La cita ha sido cancelada',
-            'no_asistio' => 'Se ha registrado que el paciente no asistió'
-        ];
-        
         return [
             'success' => true,
-            'message' => 'Estado de cita actualizado exitosamente',
+            'message' => "Estado de cita actualizado exitosamente a: {$nuevoEstado}",
             'data' => [
-                'cambio_exitoso' => '✅ COMPLETADO',
                 'id_cita' => $idCita,
-                'numero_cita' => str_pad($idCita, 6, '0', STR_PAD_LEFT),
                 'estado_anterior' => $cita['estado_actual'],
                 'estado_nuevo' => $nuevoEstado,
-                'mensaje_estado' => $mensajesEstado[$nuevoEstado] ?? 'Estado actualizado',
-                'motivo_cambio' => $motivoCambio,
-                'paciente' => [
-                    'nombre' => $cita['nombre_paciente'] . ' ' . $cita['apellido_paciente'],
-                    'email' => $cita['email_paciente']
-                ],
-                'medico' => [
-                    'nombre' => $cita['nombre_medico'] . ' ' . $cita['apellido_medico'],
-                    'email' => $cita['email_medico']
-                ],
-                'cita' => [
-                    'fecha' => $cita['fecha_cita'],
-                    'hora' => $cita['hora_cita'],
-                    'tipo' => $cita['tipo_cita'],
-                    'especialidad' => $cita['especialidad']
-                ],
-                'notificaciones' => [
-                    'email_paciente' => $emailsEnviados['paciente'] ? '✅ Enviado' : '❌ Error al enviar',
-                    'email_medico' => $emailsEnviados['medico'] ? '✅ Enviado' : '❌ Error al enviar',
-                    'mensaje' => ($emailsEnviados['paciente'] && $emailsEnviados['medico']) 
-                        ? 'Notificaciones enviadas exitosamente a ambos'
-                        : (($emailsEnviados['paciente'] || $emailsEnviados['medico']) 
-                            ? 'Algunas notificaciones fueron enviadas' 
-                            : 'Las notificaciones no pudieron enviarse')
-                ],
-                'timestamp' => date('Y-m-d H:i:s')
+                'observaciones_anteriores' => $cita['observaciones_actuales'],
+                'observaciones_nuevas' => $observaciones,
+                'observaciones_actualizadas' => $observaciones !== null,
+                'notificaciones_enviadas' => $notificacionesCreadas,
+                'emails_enviados' => $emailsEnviados, // ✅ NUEVA INFO
+                'cambios_realizados' => [
+                    'estado_actualizado' => true,
+                    'observaciones_guardadas' => $observaciones !== null,
+                    'emails_paciente' => $emailsEnviados['paciente'] ? '✅ Enviado' : '❌ Error',
+                    'emails_medico' => $emailsEnviados['medico'] ? '✅ Enviado' : '❌ Error',
+                    'fecha_cambio' => date('Y-m-d H:i:s')
+                ]
             ]
         ];
         
     } catch (\Exception $e) {
-        if ($this->db->inTransaction()) {
-            $this->db->rollback();
-        }
+        $this->db->rollback();
         return [
             'success' => false,
             'message' => 'Error al cambiar estado de cita: ' . $e->getMessage()
@@ -1454,4 +1465,6 @@ public function cambiarEstadoCita($idCita, $nuevoEstado, $motivoCambio = null) {
 }
 
 }
+
+
 ?>

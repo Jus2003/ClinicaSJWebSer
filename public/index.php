@@ -248,6 +248,8 @@ require __DIR__ . '/../src/Routes/medicos.php';
 
 require __DIR__ . '/../src/Routes/triaje.php';
 
+require __DIR__ . '/../src/Routes/recetas.php';
+
 // ============================================
 // EJECUTAR LA APLICACIÓN
 // ============================================

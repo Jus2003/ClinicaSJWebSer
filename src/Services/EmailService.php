@@ -768,102 +768,124 @@ private function generarPlantillaCambioEstado($nombre, $datosCita, $tipo) {
     
     $saludo = ($tipo === 'paciente') ? "Estimado/a {$nombre}" : "Dr. {$nombre}";
     $mensaje_principal = ($tipo === 'paciente') ? 
-        "Le informamos que el estado de su cita médica ha cambiado:" : 
-        "Le informamos sobre un cambio en el estado de la cita:";
-    
-    return "
+        "Le informamos que el estado de su cita médica ha cambiado" : 
+        "Le informamos sobre un cambio en el estado de la cita";
+
+    $html = "
     <!DOCTYPE html>
     <html>
     <head>
         <meta charset='UTF-8'>
         <meta name='viewport' content='width=device-width, initial-scale=1.0'>
         <title>Cambio de Estado - Cita Médica</title>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.1); overflow: hidden; }
+            .header { background: linear-gradient(135deg, {$config['color']}, " . $this->adjustColorBrightness($config['color'], -20) . "); color: white; padding: 30px; text-align: center; }
+            .content { padding: 30px; }
+            .estado-badge { display: inline-block; padding: 10px 20px; background: {$config['color']}; color: white; border-radius: 25px; font-weight: bold; margin: 15px 0; }
+            .info-box { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid {$config['color']}; }
+            .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ecf0f1; }
+            .detail-label { font-weight: bold; color: #2c3e50; }
+            .detail-value { color: #34495e; }
+            .observaciones-box { background: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #27ae60; }
+            .footer { background-color: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; font-size: 14px; }
+        </style>
     </head>
-    <body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f4f4f4;'>
-        <div style='max-width: 600px; margin: 0 auto; background-color: white; border-radius: 10px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.1);'>
-            
+    <body>
+        <div class='container'>
             <!-- Header -->
-            <div style='background: linear-gradient(135deg, {$config['color']}, " . $this->darkenColor($config['color'], 20) . "); padding: 30px; text-align: center; color: white;'>
-                <h1 style='margin: 0; font-size: 28px; font-weight: bold;'>
-                    {$config['emoji']} {$config['titulo']}
-                </h1>
-                <p style='margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;'>Clínica SJ - Sistema de Citas</p>
+            <div class='header'>
+                <h1 style='margin: 0; font-size: 24px;'>{$config['emoji']} {$config['titulo']}</h1>
+                <p style='margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;'>Sistema de Clínica SJ</p>
             </div>
             
-            <!-- Contenido Principal -->
-            <div style='padding: 30px;'>
-                <p style='font-size: 18px; margin-bottom: 25px; color: #2c3e50;'>
-                    {$saludo},
-                </p>
+            <!-- Content -->
+            <div class='content'>
+                <p style='font-size: 16px; margin-bottom: 20px;'>{$saludo},</p>
+                <p style='font-size: 16px; margin-bottom: 20px;'>{$mensaje_principal}:</p>
                 
-                <p style='font-size: 16px; margin-bottom: 25px; line-height: 1.8;'>
-                    {$mensaje_principal}
-                </p>
-                
-                <!-- Información del Estado -->
-                <div style='background-color: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid {$config['color']}; margin: 20px 0;'>
-                    <h3 style='margin: 0 0 10px 0; color: {$config['color']}; font-size: 18px;'>
-                        {$config['emoji']} Estado: {$config['titulo']}
-                    </h3>
-                    <p style='margin: 5px 0; color: #6c757d;'>
-                        <strong>Estado anterior:</strong> " . ucfirst($datosCita['estado_anterior']) . "
-                    </p>";
-    
-    if (!empty($datosCita['motivo_cambio'])) {
-        $html .= "
-                    <p style='margin: 5px 0; color: #6c757d;'>
-                        <strong>Motivo:</strong> {$datosCita['motivo_cambio']}
-                    </p>";
-    }
-    
-    $html .= "
+                <div class='estado-badge'>
+                    {$config['emoji']} {$config['titulo']}
                 </div>
                 
-                <!-- Detalles de la Cita -->
-                <div style='background-color: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 20px 0;'>
-                    <h3 style='margin: 0 0 15px 0; color: #495057; border-bottom: 2px solid #e9ecef; padding-bottom: 10px;'>
-                        📋 Detalles de la Cita
-                    </h3>
-                    
-                    <div style='display: grid; gap: 10px;'>
-                        <p style='margin: 5px 0; padding: 8px 0; border-bottom: 1px solid #f8f9fa;'>
-                            <strong style='color: #495057;'>🗓️ Fecha:</strong> {$fechaFormateada}
-                        </p>
-                        <p style='margin: 5px 0; padding: 8px 0; border-bottom: 1px solid #f8f9fa;'>
-                            <strong style='color: #495057;'>⏰ Hora:</strong> {$horaFormateada}
-                        </p>";
+                <!-- Información de la Cita -->
+                <div class='info-box'>
+                    <h3 style='margin: 0 0 15px 0; color: #2c3e50;'>📋 Detalles de la Cita</h3>
+                    <div class='detail-row'>
+                        <span class='detail-label'>📅 Fecha:</span>
+                        <span class='detail-value'>{$fechaFormateada}</span>
+                    </div>
+                    <div class='detail-row'>
+                        <span class='detail-label'>🕐 Hora:</span>
+                        <span class='detail-value'>{$horaFormateada}</span>
+                    </div>
+                    <div class='detail-row'>
+                        <span class='detail-label'>🏥 Tipo:</span>
+                        <span class='detail-value'>" . ucfirst($datosCita['tipo_cita']) . "</span>
+                    </div>
+                    <div class='detail-row'>
+                        <span class='detail-label'>⚕️ Especialidad:</span>
+                        <span class='detail-value'>{$datosCita['especialidad']}</span>
+                    </div>";
     
     if ($tipo === 'paciente') {
         $html .= "
-                        <p style='margin: 5px 0; padding: 8px 0; border-bottom: 1px solid #f8f9fa;'>
-                            <strong style='color: #495057;'>👨‍⚕️ Médico:</strong> {$datosCita['nombre_medico']}
-                        </p>";
+                    <div class='detail-row'>
+                        <span class='detail-label'>👨‍⚕️ Médico:</span>
+                        <span class='detail-value'>{$datosCita['nombre_medico']}</span>
+                    </div>";
     } else {
         $html .= "
-                        <p style='margin: 5px 0; padding: 8px 0; border-bottom: 1px solid #f8f9fa;'>
-                            <strong style='color: #495057;'>👤 Paciente:</strong> {$datosCita['nombre_paciente']}
-                        </p>";
+                    <div class='detail-row'>
+                        <span class='detail-label'>👤 Paciente:</span>
+                        <span class='detail-value'>{$datosCita['nombre_paciente']}</span>
+                    </div>";
     }
     
     $html .= "
-                        <p style='margin: 5px 0; padding: 8px 0; border-bottom: 1px solid #f8f9fa;'>
-                            <strong style='color: #495057;'>🏥 Especialidad:</strong> {$datosCita['especialidad']}
-                        </p>
-                        <p style='margin: 5px 0; padding: 8px 0;'>
-                            <strong style='color: #495057;'>📍 Tipo:</strong> " . ucfirst($datosCita['tipo_cita']) . "
-                        </p>
+                    <div class='detail-row'>
+                        <span class='detail-label'>🏢 Sucursal:</span>
+                        <span class='detail-value'>{$datosCita['sucursal']}</span>
                     </div>
                 </div>";
-    
+
+    // ✅ NUEVA FUNCIONALIDAD: Mostrar observaciones si el estado es completada Y hay observaciones
+    if ($datosCita['estado_nuevo'] === 'completada' && !empty($datosCita['observaciones'])) {
+        $html .= "
+                <!-- Observaciones Médicas -->
+                <div class='observaciones-box'>
+                    <h3 style='margin: 0 0 15px 0; color: #27ae60;'>📝 Observaciones del Médico</h3>
+                    <p style='margin: 0; font-size: 15px; line-height: 1.6;'>{$datosCita['observaciones']}</p>
+                </div>";
+    }
+
+    // Motivo de cambio si existe
+    if (!empty($datosCita['motivo_cambio'])) {
+        $html .= "
+                <!-- Motivo del Cambio -->
+                <div class='info-box'>
+                    <h3 style='margin: 0 0 10px 0; color: #2c3e50;'>💬 Motivo del Cambio</h3>
+                    <p style='margin: 0; font-style: italic;'>{$datosCita['motivo_cambio']}</p>
+                </div>";
+    }
+
     // Información adicional según el tipo de cita
     if ($datosCita['tipo_cita'] === 'virtual' && !empty($datosCita['enlace_virtual'])) {
         $html .= "
                 <!-- Información Virtual -->
                 <div style='background: linear-gradient(135deg, #17a2b8, #138496); padding: 20px; border-radius: 8px; margin: 20px 0; color: white;'>
                     <h3 style='margin: 0 0 15px 0; font-size: 18px;'>🎥 Información de Conexión Virtual</h3>
-                    <p style='margin: 8px 0;'><strong>Enlace:</strong> {$datosCita['enlace_virtual']}</p>
-                    <p style='margin: 8px 0;'><strong>ID de reunión:</strong> {$datosCita['zoom_meeting_id']}</p>
-                    <p style='margin: 8px 0;'><strong>Contraseña:</strong> {$datosCita['zoom_password']}</p>
+                    <p style='margin: 8px 0;'><strong>Enlace:</strong> {$datosCita['enlace_virtual']}</p>";
+        
+        if (!empty($datosCita['zoom_meeting_id'])) {
+            $html .= "<p style='margin: 8px 0;'><strong>ID de reunión:</strong> {$datosCita['zoom_meeting_id']}</p>";
+        }
+        if (!empty($datosCita['zoom_password'])) {
+            $html .= "<p style='margin: 8px 0;'><strong>Contraseña:</strong> {$datosCita['zoom_password']}</p>";
+        }
+        
+        $html .= "
                 </div>";
     }
     
@@ -871,13 +893,9 @@ private function generarPlantillaCambioEstado($nombre, $datosCita, $tipo) {
             </div>
             
             <!-- Footer -->
-            <div style='background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #dee2e6;'>
-                <p style='margin: 0; color: #6c757d; font-size: 14px;'>
-                    Este es un mensaje automático del Sistema de Citas de Clínica SJ
-                </p>
-                <p style='margin: 5px 0 0 0; color: #6c757d; font-size: 14px;'>
-                    📧 Soporte: " . EmailConfig::SUPPORT_EMAIL . "
-                </p>
+            <div class='footer'>
+                <p style='margin: 0;'>Este es un mensaje automático del Sistema de Citas de Clínica SJ</p>
+                <p style='margin: 5px 0 0 0;'>📧 Soporte: " . \App\Config\EmailConfig::SUPPORT_EMAIL . "</p>
             </div>
         </div>
     </body>
@@ -887,50 +905,90 @@ private function generarPlantillaCambioEstado($nombre, $datosCita, $tipo) {
 }
 
 /**
+ * Función auxiliar para ajustar el brillo de un color (para gradientes)
+ */
+private function adjustColorBrightness($hex, $steps) {
+    // Función simple para hacer gradientes
+    $steps = max(-255, min(255, $steps));
+    $hex = str_replace('#', '', $hex);
+    
+    if (strlen($hex) == 3) {
+        $hex = str_repeat(substr($hex,0,1), 2).str_repeat(substr($hex,1,1), 2).str_repeat(substr($hex,2,1), 2);
+    }
+    
+    $r = hexdec(substr($hex,0,2));
+    $g = hexdec(substr($hex,2,2));
+    $b = hexdec(substr($hex,4,2));
+    
+    $r = max(0, min(255, $r + $steps));
+    $g = max(0, min(255, $g + $steps));
+    $b = max(0, min(255, $b + $steps));
+    
+    return '#'.dechex($r).dechex($g).dechex($b);
+}
+/**
  * Generar texto plano para cambio de estado
  */
+/**
+ * Generar texto plano para notificación de cambio de estado (ACTUALIZADO)
+ */
 private function generarTextoPlanoNotificacionCambioEstado($nombre, $datosCita, $tipo) {
+    $fechaFormateada = date('d/m/Y', strtotime($datosCita['fecha_cita']));
+    $horaFormateada = date('H:i', strtotime($datosCita['hora_cita']));
+    
+    $estadosTexto = [
+        'confirmada' => 'CONFIRMADA',
+        'cancelada' => 'CANCELADA',
+        'completada' => 'COMPLETADA',
+        'en_curso' => 'EN CURSO',
+        'no_asistio' => 'NO ASISTENCIA REGISTRADA'
+    ];
+    
+    $estadoTexto = $estadosTexto[$datosCita['estado_nuevo']] ?? 'ACTUALIZADA';
     $saludo = ($tipo === 'paciente') ? "Estimado/a {$nombre}" : "Dr. {$nombre}";
-    $mensaje_principal = ($tipo === 'paciente') ? 
-        "Le informamos que el estado de su cita médica ha cambiado" : 
-        "Le informamos sobre un cambio en el estado de la cita";
     
-    $texto = "CAMBIO DE ESTADO - CITA MÉDICA\n";
-    $texto .= "Clínica SJ - Sistema de Citas\n\n";
-    $texto .= "{$saludo},\n\n";
-    $texto .= "{$mensaje_principal}:\n\n";
-    
-    $texto .= "NUEVO ESTADO: " . strtoupper($datosCita['estado_nuevo']) . "\n";
-    $texto .= "Estado anterior: " . ucfirst($datosCita['estado_anterior']) . "\n";
-    
-    if (!empty($datosCita['motivo_cambio'])) {
-        $texto .= "Motivo: {$datosCita['motivo_cambio']}\n";
-    }
-    
-    $texto .= "\nDETALLES DE LA CITA:\n";
-    $texto .= "Fecha: {$datosCita['fecha_cita']}\n";
-    $texto .= "Hora: {$datosCita['hora_cita']}\n";
+    $mensaje = "NOTIFICACIÓN DE CITA - CLÍNICA SJ\n\n";
+    $mensaje .= "{$saludo},\n\n";
+    $mensaje .= "Su cita ha sido {$estadoTexto}\n\n";
+    $mensaje .= "DETALLES DE LA CITA:\n";
+    $mensaje .= "• Fecha: {$fechaFormateada}\n";
+    $mensaje .= "• Hora: {$horaFormateada}\n";
+    $mensaje .= "• Tipo: " . ucfirst($datosCita['tipo_cita']) . "\n";
+    $mensaje .= "• Especialidad: {$datosCita['especialidad']}\n";
     
     if ($tipo === 'paciente') {
-        $texto .= "Médico: {$datosCita['nombre_medico']}\n";
+        $mensaje .= "• Médico: {$datosCita['nombre_medico']}\n";
     } else {
-        $texto .= "Paciente: {$datosCita['nombre_paciente']}\n";
+        $mensaje .= "• Paciente: {$datosCita['nombre_paciente']}\n";
     }
     
-    $texto .= "Especialidad: {$datosCita['especialidad']}\n";
-    $texto .= "Tipo: " . ucfirst($datosCita['tipo_cita']) . "\n";
+    $mensaje .= "• Sucursal: {$datosCita['sucursal']}\n";
+    
+    // ✅ NUEVA FUNCIONALIDAD: Mostrar observaciones en texto plano
+    if ($datosCita['estado_nuevo'] === 'completada' && !empty($datosCita['observaciones'])) {
+        $mensaje .= "\nOBSERVACIONES DEL MÉDICO:\n";
+        $mensaje .= "{$datosCita['observaciones']}\n";
+    }
+    
+    if (!empty($datosCita['motivo_cambio'])) {
+        $mensaje .= "\nMotivo del cambio: {$datosCita['motivo_cambio']}\n";
+    }
     
     if ($datosCita['tipo_cita'] === 'virtual' && !empty($datosCita['enlace_virtual'])) {
-        $texto .= "\nINFORMACIÓN VIRTUAL:\n";
-        $texto .= "Enlace: {$datosCita['enlace_virtual']}\n";
-        $texto .= "ID: {$datosCita['zoom_meeting_id']}\n";
-        $texto .= "Contraseña: {$datosCita['zoom_password']}\n";
+        $mensaje .= "\nINFORMACIÓN VIRTUAL:\n";
+        $mensaje .= "• Enlace: {$datosCita['enlace_virtual']}\n";
+        if (!empty($datosCita['zoom_meeting_id'])) {
+            $mensaje .= "• ID reunión: {$datosCita['zoom_meeting_id']}\n";
+        }
+        if (!empty($datosCita['zoom_password'])) {
+            $mensaje .= "• Contraseña: {$datosCita['zoom_password']}\n";
+        }
     }
     
-    $texto .= "\nSistema de Clínica SJ\n";
-    $texto .= "Soporte: " . EmailConfig::SUPPORT_EMAIL;
+    $mensaje .= "\nSistema de Clínica SJ\n";
+    $mensaje .= "Soporte: " . \App\Config\EmailConfig::SUPPORT_EMAIL;
     
-    return $texto;
+    return $mensaje;
 }
 
 /**
@@ -948,6 +1006,132 @@ private function darkenColor($hex, $percent) {
     
     return $darkColors[$hex] ?? $hex; // Si no encuentra el color, devuelve el original
 }
+
+/**
+ * Enviar receta médica por email
+ */
+public function enviarRecetaMedica($emailPaciente, $nombrePaciente, $datosReceta) {
+    try {
+        $asunto = "📋 Nueva Receta Médica - Código: " . $datosReceta['codigo_receta'];
+        $mensaje = $this->generarPlantillaRecetaMedica($nombrePaciente, $datosReceta);
+        $textoPlano = $this->generarTextoPlanoReceta($nombrePaciente, $datosReceta);
+        
+        return $this->enviarEmail($emailPaciente, $asunto, $mensaje, $textoPlano);
+        
+    } catch (\Exception $e) {
+        error_log("Error enviando receta por email: " . $e->getMessage());
+        return ['success' => false, 'message' => 'Error al enviar receta: ' . $e->getMessage()];
+    }
+}
+
+private function generarPlantillaRecetaMedica($nombrePaciente, $datosReceta) {
+    $fechaEmision = date('d/m/Y', strtotime($datosReceta['fecha_emision']));
+    $fechaVencimiento = date('d/m/Y', strtotime($datosReceta['fecha_vencimiento']));
+    
+    return "
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset='UTF-8'>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+            .header { text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; }
+            .receta-info { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
+           .medicamento { font-size: 18px; font-weight: bold; color: #2c3e50; margin-bottom: 15px; }
+           .detalle { margin: 10px 0; padding: 8px 0; border-bottom: 1px solid #ecf0f1; }
+           .detalle strong { color: #34495e; }
+           .codigo { background: #3498db; color: white; padding: 10px; border-radius: 5px; text-align: center; font-size: 16px; font-weight: bold; margin: 20px 0; }
+           .indicaciones { background: #e8f5e8; padding: 15px; border-left: 4px solid #27ae60; margin: 15px 0; }
+           .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #ecf0f1; color: #7f8c8d; font-size: 12px; }
+           .btn { display: inline-block; padding: 12px 25px; background: #27ae60; color: white; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+           .warning { background: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 15px; border-radius: 5px; margin: 15px 0; }
+       </style>
+   </head>
+   <body>
+       <div class='container'>
+           <div class='header'>
+               <h1>📋 Receta Médica</h1>
+               <p>Sistema de Clínica SJ</p>
+           </div>
+           
+           <p>Estimado/a <strong>{$nombrePaciente}</strong>,</p>
+           <p>Se ha emitido una nueva receta médica para usted:</p>
+           
+           <div class='codigo'>
+               <strong>Código de Receta: {$datosReceta['codigo_receta']}</strong>
+           </div>
+           
+           <div class='receta-info'>
+               <div class='medicamento'>
+                   💊 {$datosReceta['medicamento']}
+                   " . ($datosReceta['concentracion'] ? " - {$datosReceta['concentracion']}" : "") . "
+               </div>
+               
+               <div class='detalle'><strong>📏 Dosis:</strong> {$datosReceta['dosis']}</div>
+               <div class='detalle'><strong>🕐 Frecuencia:</strong> {$datosReceta['frecuencia']}</div>
+               <div class='detalle'><strong>📅 Duración:</strong> {$datosReceta['duracion']}</div>
+               <div class='detalle'><strong>📦 Cantidad:</strong> {$datosReceta['cantidad']}</div>
+               <div class='detalle'><strong>👨‍⚕️ Médico:</strong> {$datosReceta['nombre_medico']}</div>
+               <div class='detalle'><strong>📅 Fecha de emisión:</strong> {$fechaEmision}</div>
+               <div class='detalle'><strong>⏰ Válida hasta:</strong> {$fechaVencimiento}</div>
+           </div>
+           
+           " . ($datosReceta['indicaciones_especiales'] ? "
+           <div class='indicaciones'>
+               <strong>⚠️ Indicaciones especiales:</strong><br>
+               {$datosReceta['indicaciones_especiales']}
+           </div>
+           " : "") . "
+           
+           <div class='warning'>
+               <strong>📌 Recordatorio importante:</strong><br>
+               • Siga las indicaciones médicas al pie de la letra<br>
+               • No suspenda el tratamiento sin consultar con su médico<br>
+               • Esta receta es válida hasta el {$fechaVencimiento}<br>
+               • Presente este código en la farmacia para obtener su medicamento
+           </div>
+           
+           <div style='text-align: center; margin: 30px 0;'>
+               <p><strong>¿Tiene alguna consulta sobre su tratamiento?</strong></p>
+               <p>Contacte con nosotros para cualquier aclaración.</p>
+           </div>
+       </div>
+       
+       <div class='footer'>
+           <p><strong>📧 Sistema de Clínica SJ</strong></p>
+           <p>Este es un mensaje automático. Por favor no responder a este email.</p>
+           <p>Si tiene consultas médicas, contacte directamente con su médico tratante.</p>
+       </div>
+   </body>
+   </html>";
+}
+
+private function generarTextoPlanoReceta($nombrePaciente, $datosReceta) {
+   $fechaEmision = date('d/m/Y', strtotime($datosReceta['fecha_emision']));
+   $fechaVencimiento = date('d/m/Y', strtotime($datosReceta['fecha_vencimiento']));
+   
+   return "RECETA MÉDICA - CLÍNICA SJ\n\n" .
+          "Estimado/a {$nombrePaciente},\n\n" .
+          "CÓDIGO DE RECETA: {$datosReceta['codigo_receta']}\n\n" .
+          "MEDICAMENTO: {$datosReceta['medicamento']}\n" .
+          ($datosReceta['concentracion'] ? "CONCENTRACIÓN: {$datosReceta['concentracion']}\n" : "") .
+          "DOSIS: {$datosReceta['dosis']}\n" .
+          "FRECUENCIA: {$datosReceta['frecuencia']}\n" .
+          "DURACIÓN: {$datosReceta['duracion']}\n" .
+          "CANTIDAD: {$datosReceta['cantidad']}\n\n" .
+          "MÉDICO: {$datosReceta['nombre_medico']}\n" .
+          "FECHA EMISIÓN: {$fechaEmision}\n" .
+          "VÁLIDA HASTA: {$fechaVencimiento}\n\n" .
+          ($datosReceta['indicaciones_especiales'] ? "INDICACIONES ESPECIALES:\n{$datosReceta['indicaciones_especiales']}\n\n" : "") .
+          "IMPORTANTE:\n" .
+          "- Siga las indicaciones médicas\n" .
+          "- No suspenda el tratamiento sin consultar\n" .
+          "- Presente este código en la farmacia\n\n" .
+          "Sistema de Clínica SJ";
+}
+
+
 
 }
 ?>

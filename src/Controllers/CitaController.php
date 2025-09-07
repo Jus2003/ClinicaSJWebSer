@@ -1096,7 +1096,7 @@ public function crearCita($request, $response) {
 }
 
 /**
- * Cambiar estado de una cita
+ * Cambiar estado de una cita (MODIFICADO para incluir observaciones)
  * PUT/POST /citas/cambiar-estado/{id_cita}
  */
 public function cambiarEstadoCita($request, $response, $args) {
@@ -1142,8 +1142,16 @@ public function cambiarEstadoCita($request, $response, $args) {
         }
         
         $citaModel = new \App\Models\Cita();
-        $resultado = $citaModel->cambiarEstadoCita($idCita, $data['nuevo_estado'], $data['motivo_cambio'] ?? null);
         
+        // ✅ NUEVA FUNCIONALIDAD: Pasar observaciones al modelo
+        $observaciones = $data['observaciones'] ?? null;
+        $resultado = $citaModel->cambiarEstadoCita(
+            $idCita, 
+            $data['nuevo_estado'], 
+            $data['motivo_cambio'] ?? null,
+            $observaciones  // ← NUEVO PARÁMETRO
+        );
+
         if ($resultado['success']) {
             $result = [
                 'status' => 200,
@@ -1158,7 +1166,7 @@ public function cambiarEstadoCita($request, $response, $args) {
                 'status' => 400,
                 'success' => false,
                 'message' => $resultado['message'],
-                'data' => null
+                'data' => $resultado['data'] ?? null
             ];
             $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
