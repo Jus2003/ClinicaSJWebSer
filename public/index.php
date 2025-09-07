@@ -250,6 +250,8 @@ require __DIR__ . '/../src/Routes/triaje.php';
 
 require __DIR__ . '/../src/Routes/recetas.php';
 
+require_once __DIR__ . '/../src/Routes/historial.php';
+
 // ============================================
 // EJECUTAR LA APLICACIÓN
 // ============================================
