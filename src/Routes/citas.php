@@ -1,34 +1,32 @@
 <?php
 use App\Controllers\CitaController;
 
-$app->group('/citas', function ($group) {
+$group->group('/citas', function ($subGroup) {
     // Rutas GET existentes
-    $group->get('/especialidad/{id_especialidad}/medico/{id_medico}', [CitaController::class, 'consultarPorEspecialidadYMedico']);
-    $group->get('/medico/{id_medico}', [CitaController::class, 'consultarPorEspecialidadYMedico']);
-    $group->get('/especialidad/{id_especialidad}', [CitaController::class, 'consultarPorEspecialidadYMedico']);
-    $group->get('/fechas', [CitaController::class, 'consultarPorRangoFechas']);
-    $group->post('/fechas', [CitaController::class, 'consultarPorRangoFechas']);
-    $group->get('/paciente/{id_paciente}', [CitaController::class, 'consultarPorPaciente']);
-    $group->get('/todas', [CitaController::class, 'listarTodas']);
-    $group->get('/todas-completas', [CitaController::class, 'listarTodasCompletas']);
+    $subGroup->get('/especialidad/{id_especialidad}/medico/{id_medico}', [CitaController::class, 'consultarPorEspecialidadYMedico']);
+    $subGroup->get('/medico/{id_medico}', [CitaController::class, 'consultarPorEspecialidadYMedico']);
+    $subGroup->get('/especialidad/{id_especialidad}', [CitaController::class, 'consultarPorEspecialidadYMedico']);
+    $subGroup->get('/fechas', [CitaController::class, 'consultarPorRangoFechas']);
+    $subGroup->post('/fechas', [CitaController::class, 'consultarPorRangoFechas']);
+    $subGroup->get('/paciente/{id_paciente}', [CitaController::class, 'consultarPorPaciente']);
+    $subGroup->get('/todas', [CitaController::class, 'listarTodas']);
+    $subGroup->get('/todas-completas', [CitaController::class, 'listarTodasCompletas']);
     
     // ✅ NUEVAS RUTAS PARA EL FLUJO DE CITAS
-    $group->get('/especialidades-disponibles/{tipo_cita}', [CitaController::class, 'obtenerEspecialidadesDisponibles']);
-    $group->get('/medicos-por-especialidad/{id_especialidad}/{tipo_cita}', [CitaController::class, 'obtenerMedicosPorEspecialidad']);
-    $group->post('/horarios-disponibles', [CitaController::class, 'obtenerHorariosDisponibles']);
-    $group->post('/crear', [CitaController::class, 'crearCita']);
-    $group->post('/validar-disponibilidad', [CitaController::class, 'validarDisponibilidad']);
+    $subGroup->get('/especialidades-disponibles/{tipo_cita}', [CitaController::class, 'obtenerEspecialidadesDisponibles']);
+    $subGroup->get('/medicos-por-especialidad/{id_especialidad}/{tipo_cita}', [CitaController::class, 'obtenerMedicosPorEspecialidad']);
+    $subGroup->post('/horarios-disponibles', [CitaController::class, 'obtenerHorariosDisponibles']);
+    $subGroup->post('/crear', [CitaController::class, 'crearCita']);
+    $subGroup->post('/validar-disponibilidad', [CitaController::class, 'validarDisponibilidad']);
     
     // Rutas POST con JSON existentes
-    $group->post('/buscar-por-filtros', [CitaController::class, 'buscarCitasPorEspecialidadMedicoJSON']);
-    $group->post('/buscar-por-id', [CitaController::class, 'buscarCitaPorIdJSON']);
-    $group->post('/buscar-por-medico', [CitaController::class, 'obtenerCitasPorMedicoJSON']);
-    $group->post('/buscar-fechas-usuario', [CitaController::class, 'consultarCitasPorFechasYUsuario']);
+    $subGroup->post('/buscar-por-filtros', [CitaController::class, 'buscarCitasPorEspecialidadMedicoJSON']);
+    $subGroup->post('/buscar-por-id', [CitaController::class, 'buscarCitaPorIdJSON']);
+    $subGroup->post('/buscar-por-medico', [CitaController::class, 'obtenerCitasPorMedicoJSON']);
+    $subGroup->post('/buscar-fechas-usuario', [CitaController::class, 'consultarCitasPorFechasYUsuario']);
 
-    $group->put('/cambiar-estado/{id_cita}', [CitaController::class, 'cambiarEstadoCita']);
-    $group->post('/cambiar-estado/{id_cita}', [CitaController::class, 'cambiarEstadoCita']); // También con POST
-    $group->post('/buscar-por-paciente', [CitaController::class, 'obtenerCitasPorPacienteJSON']);
-
-    
+    $subGroup->put('/cambiar-estado/{id_cita}', [CitaController::class, 'cambiarEstadoCita']);
+    $subGroup->post('/cambiar-estado/{id_cita}', [CitaController::class, 'cambiarEstadoCita']); // También con POST
+    $subGroup->post('/buscar-por-paciente', [CitaController::class, 'obtenerCitasPorPacienteJSON']);
 });
 ?>

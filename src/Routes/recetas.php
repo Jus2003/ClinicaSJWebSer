@@ -1,11 +1,11 @@
 <?php
 use App\Controllers\RecetaController;
 
-$app->group('/recetas', function ($group) {
+$group->group('/recetas', function ($subGroup) {
     // Crear nueva receta médica directamente para una cita
-    $group->post('/crear', [RecetaController::class, 'crearReceta']);
+    $subGroup->post('/crear', [RecetaController::class, 'crearReceta']);
     
     // Obtener recetas por cita (en lugar de por consulta)
-    $group->get('/cita/{id_cita}', [RecetaController::class, 'obtenerRecetasPorCita']);
+    $subGroup->get('/cita/{id_cita}', [RecetaController::class, 'obtenerRecetasPorCita']);
 });
 ?>

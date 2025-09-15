@@ -1,11 +1,10 @@
 <?php
 use App\Controllers\PerfilController;
 
-$app->group('/perfil', function ($group) {
-    $group->put('/cambiar-password', [PerfilController::class, 'cambiarPassword']);
+// Usar $group porque este archivo se incluye dentro del grupo con middleware JWT
+$group->group('/perfil', function ($subGroup) {
+    $subGroup->put('/cambiar-password', [PerfilController::class, 'cambiarPassword']);
 });
 
-$app->group('/auth', function ($group) {
-    $group->post('/olvido-password', [PerfilController::class, 'olvidoPassword']);
-});
+
 ?>

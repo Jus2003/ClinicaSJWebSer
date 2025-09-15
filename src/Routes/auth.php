@@ -1,36 +1,38 @@
 <?php
 use App\Controllers\AuthController;
 
-$app->group('/auth', function ($group) {
-    $group->post('/login', [AuthController::class, 'login']);
-    $group->post('/logout', [AuthController::class, 'logout']);
-    $group->get('/perfil', [AuthController::class, 'perfil']);
-});
-$app->get('/auth/verify-session', function ($request, $response) {
-    try {
-        $result = [
-            'status' => 200,
-            'success' => true,
-            'session_active' => isset($_SESSION['user_id']),
-            'user_id' => $_SESSION['user_id'] ?? null,
-            'session_id' => session_id(),
-            'data' => [
-                'timestamp' => date('Y-m-d H:i:s'),
-                'session_data' => $_SESSION ?? []
-            ]
-        ];
-        
-        $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
-        return $response->withHeader('Content-Type', 'application/json');
-        
-    } catch (\Exception $e) {
-        $result = [
-            'status' => 500,
-            'success' => false,
-            'message' => 'Error: ' . $e->getMessage()
-        ];
-        $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
-        return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
-    }
+// Usar $group porque este archivo se incluye dentro del grupo con middleware JWT
+$group->group('/auth', function ($subGroup) {
+    // ❌ NO incluir login aquí porque ya está en la sección pública del index.php
+    // $subGroup->post('/login', [AuthController::class, 'login']);
+    
+    $subGroup->post('/logout', [AuthController::class, 'logout']);
+    $subGroup->get('/perfil', [AuthController::class, 'perfil']);
+    $subGroup->get('/verify-session', function ($request, $response) {
+        try {
+            // Ahora puedes acceder a los datos del usuario del JWT
+            $userData = $request->getAttribute('user');
+            
+            $result = [
+                'status' => 200,
+                'success' => true,
+                'jwt_active' => true,
+                'user_data' => $userData,
+                'timestamp' => date('Y-m-d H:i:s')
+            ];
+            
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json');
+            
+        } catch (\Exception $e) {
+            $result = [
+                'status' => 500,
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ];
+            $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+        }
+    });
 });
 ?>
