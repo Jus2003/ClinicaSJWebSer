@@ -12,9 +12,6 @@ class JWTService {
         $this->config = require __DIR__ . '/../../config/jwt.php';
     }
     
-    /**
-     * Genera un JWT token
-     */
     public function generateToken($userId, $username, $email = null, $roleId = null) {
         $payload = [
             'iss' => $this->config['issuer'],
@@ -30,21 +27,30 @@ class JWTService {
         return JWT::encode($payload, $this->config['secret_key'], $this->config['algorithm']);
     }
     
-    /**
-     * Valida un JWT token
-     */
     public function validateToken($token) {
         try {
+            error_log("=== JWT VALIDATION DEBUG ===");
+            error_log("Token: " . substr($token, 0, 50) . "...");
+            error_log("Secret key: " . substr($this->config['secret_key'], 0, 20) . "...");
+            error_log("Algorithm: " . $this->config['algorithm']);
+            
             $decoded = JWT::decode($token, new Key($this->config['secret_key'], $this->config['algorithm']));
-            return (array) $decoded;
+            $result = (array) $decoded;
+            
+            error_log("Validation SUCCESS");
+            error_log("Decoded: " . json_encode($result));
+            error_log("============================");
+            
+            return $result;
+            
         } catch (Exception $e) {
+            error_log("Validation FAILED: " . $e->getMessage());
+            error_log("Exception type: " . get_class($e));
+            error_log("============================");
             return false;
         }
     }
     
-    /**
-     * Extrae el token del header Authorization
-     */
     public function getBearerToken($request) {
         $header = $request->getHeaderLine('Authorization');
         
@@ -57,9 +63,6 @@ class JWTService {
         return null;
     }
     
-    /**
-     * Obtiene el tiempo de expiración en segundos
-     */
     public function getExpirationTime() {
         return $this->config['expiration_time'];
     }

@@ -141,7 +141,7 @@ class Triaje {
                 WHERE tr.id_cita = ?
                 GROUP BY tr.tipo_triaje";
         
-        $stmt = $this->db->prepare($sql);
+        $stmt = $this->db->prepare($sql); 
         $stmt->execute([$id_cita]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }

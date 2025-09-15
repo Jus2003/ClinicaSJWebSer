@@ -4,6 +4,7 @@ namespace App\Controllers;
 use App\Models\Usuario;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use App\Services\JWTService;
 
 class AuthController {
 

@@ -159,6 +159,66 @@ $app->get('/test-models', function ($request, $response) {
     }
 });
 
+// Test temporal - agregar antes del grupo protegido
+$app->get('/test-jwt-config', function ($request, $response) {
+    $config = require __DIR__ . '/../config/jwt.php';
+    
+    $result = [
+        'secret_key_preview' => substr($config['secret_key'], 0, 20) . '...',
+        'secret_key_length' => strlen($config['secret_key']),
+        'algorithm' => $config['algorithm'],
+        'expiration_time' => $config['expiration_time']
+    ];
+    
+    $response->getBody()->write(json_encode($result, JSON_PRETTY_PRINT));
+    return $response->withHeader('Content-Type', 'application/json');
+});
+
+// Debug JWT - reemplazar el anterior
+$app->post('/debug-jwt', function ($request, $response) {
+    try {
+        $data = $request->getParsedBody();
+        $token = $data['token'] ?? '';
+        
+        if (empty($token)) {
+            throw new Exception('Token requerido en el body');
+        }
+        
+        $jwtService = new \App\Services\JWTService();
+        
+        $result = [
+            'step1_token_received' => 'OK',
+            'step2_token_length' => strlen($token),
+            'step3_token_preview' => substr($token, 0, 50) . '...',
+        ];
+        
+        // Validación directa
+        $decoded = $jwtService->validateToken($token);
+        
+        if ($decoded !== false) {
+            $result['step4_validation'] = 'SUCCESS';
+            $result['step5_decoded_data'] = $decoded;
+            $result['step6_data_type'] = gettype($decoded);
+        } else {
+            $result['step4_validation'] = 'FAILED';
+            $result['step5_error'] = 'Token validation returned false';
+        }
+        
+        $result['step7_current_time'] = time();
+        $result['step8_current_date'] = date('Y-m-d H:i:s');
+        
+        $response->getBody()->write(json_encode($result, JSON_PRETTY_PRINT));
+        return $response->withHeader('Content-Type', 'application/json');
+        
+    } catch (Exception $e) {
+        $response->getBody()->write(json_encode([
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+    }
+});
+
 // 🔑 RUTAS PÚBLICAS SIN TOKEN - SOLO LOGIN Y RECUPERAR CONTRASEÑA
 $app->post('/auth/login', [App\Controllers\AuthController::class, 'login']);
 $app->post('/auth/olvido-password', [App\Controllers\PerfilController::class, 'olvidoPassword']);
