@@ -6,8 +6,14 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
 class AuthController {
+
+    private $jwtService;
+
+    public function __construct() {
+        $this->jwtService = new JWTService();
+    }
     
-    public function login(Request $request, Response $response) {
+     public function login(Request $request, Response $response) {
         try {
             $data = $request->getParsedBody();
             
@@ -27,7 +33,15 @@ class AuthController {
             $user = $usuarioModel->login($data['usuario'], $data['password']);
             
             if ($user) {
-                // Crear sesión
+                // 🔥 GENERAR JWT TOKEN
+                $token = $this->jwtService->generateToken(
+                    $user['id_usuario'],
+                    $user['nombre'] . ' ' . $user['apellido'],
+                    $user['email'],
+                    $user['id_rol']
+                );
+                
+                // Mantener sesión para compatibilidad (opcional)
                 $_SESSION['user_id'] = $user['id_usuario'];
                 $_SESSION['user_email'] = $user['email'];
                 $_SESSION['user_role'] = $user['id_rol'];
@@ -52,7 +66,11 @@ class AuthController {
                             'sucursal' => $user['nombre_sucursal']
                         ],
                         'menus' => $menus,
-                        'session_id' => session_id()
+                        'session_id' => session_id(),
+                        // 🔥 NUEVO: Agregar token JWT
+                        'token' => $token,
+                        'token_type' => 'Bearer',
+                        'expires_in' => $this->jwtService->getExpirationTime()
                     ]
                 ];
                 
