@@ -17,6 +17,11 @@ class JWTMiddleware {
     
     public function __invoke(Request $request, RequestHandler $handler): Response {
         
+        // ✅ PERMITIR PETICIONES OPTIONS SIN VALIDAR JWT
+        if ($request->getMethod() === 'OPTIONS') {
+            return $handler->handle($request);
+        }
+        
         error_log("=== JWT MIDDLEWARE DEBUG ===");
         error_log("Request URI: " . $request->getUri()->getPath());
         error_log("Request Method: " . $request->getMethod());

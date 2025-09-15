@@ -223,6 +223,12 @@ $app->post('/debug-jwt', function ($request, $response) {
 $app->post('/auth/login', [App\Controllers\AuthController::class, 'login']);
 $app->post('/auth/olvido-password', [App\Controllers\PerfilController::class, 'olvidoPassword']);
 
+// ✅ MANEJAR PETICIONES OPTIONS (PREFLIGHT) - ANTES DEL GRUPO PROTEGIDO
+$app->options('/{routes:.+}', function ($request, $response, $args) {
+    error_log("OPTIONS intercepted for: " . $request->getUri()->getPath());
+    return $response;
+});
+
 // ============================================
 // TODAS LAS DEMÁS RUTAS REQUIEREN JWT TOKEN
 // ============================================
@@ -257,11 +263,6 @@ $app->group('', function ($group) {
     require_once __DIR__ . '/../src/Routes/historial.php';
     
 })->add(new JWTMiddleware()); // 🔒 AQUÍ SE APLICA EL MIDDLEWARE JWT
-
-// MANEJAR PETICIONES OPTIONS (PREFLIGHT)
-$app->options('/{routes:.+}', function ($request, $response, $args) {
-    return $response;
-});
 
 // Middleware de errores
 $app->addErrorMiddleware(true, true, true);
